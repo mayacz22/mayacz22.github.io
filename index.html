@@ -1,0 +1,2562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Maya Czeneszew · Portfolio</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --green: rgba(100, 255, 180, 1);
+      --green-dim: rgba(100, 255, 180, 0.6);
+      --green-faint: rgba(100, 255, 180, 0.15);
+      --green-border: rgba(100, 255, 180, 0.25);
+      --text: rgba(210, 255, 230, 0.9);
+      --text-dim: rgba(210, 255, 230, 0.5);
+      --bg-window: rgb(11, 14, 20);
+      --bg-titlebar: rgb(7, 9, 13);
+    }
+
+    body {
+      font-family: 'Courier New', Courier, monospace;
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+      user-select: none;
+      background: #000;
+    }
+
+    /* ── Canvas background ── */
+    #bg-canvas {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      transition: opacity 1.5s ease;
+    }
+
+    /* ── Scanlines overlay ── */
+    #scanlines {
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 3px,
+        rgba(0, 0, 0, 0.04) 3px,
+        rgba(0, 0, 0, 0.04) 4px
+      );
+      pointer-events: none;
+      z-index: 9998;
+    }
+
+    /* ── Vignette ── */
+    #vignette {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.6) 100%);
+      pointer-events: none;
+      z-index: 9997;
+    }
+
+    /* ── Desktop ── */
+    #desktop {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      z-index: 1;
+    }
+
+    /* ── Hero ── */
+    #hero {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -58%);
+      text-align: center;
+      z-index: 2;
+      pointer-events: none;
+    }
+    #hero-name {
+      font-size: clamp(64px, 10vw, 110px);
+      font-family: 'Courier New', monospace;
+      font-weight: bold;
+      letter-spacing: 0.25em;
+      color: transparent;
+      -webkit-text-stroke: 1.5px rgba(100, 255, 180, 0.75);
+      text-stroke: 1.5px rgba(100, 255, 180, 0.75);
+      line-height: 1;
+      margin-bottom: 14px;
+      user-select: none;
+    }
+    #hero-sub {
+      font-size: 13px;
+      letter-spacing: 3px;
+      color: rgba(100, 255, 180, 0.45);
+      text-transform: uppercase;
+      margin-bottom: 28px;
+    }
+    #hero-hint {
+      font-size: 11px;
+      letter-spacing: 1.5px;
+      color: rgba(100, 255, 180, 0.55);
+    }
+
+    /* ── Dock ── */
+    #dock {
+      position: fixed;
+      bottom: 56px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: flex-end;
+      gap: 10px;
+      padding: 10px 18px 10px;
+      background: rgb(10, 14, 20);
+      border: 1px solid var(--green-border);
+      border-radius: 20px;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04);
+      z-index: 8000;
+    }
+    .icon {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      padding: 6px 8px 4px;
+      border-radius: 14px;
+      border: 1px solid transparent;
+      transition: background 0.15s, border-color 0.15s, transform 0.15s;
+      position: relative;
+    }
+    .icon:hover {
+      background: rgba(100, 255, 180, 0.08);
+      border-color: var(--green-border);
+      transform: translateY(-8px) scale(1.18);
+    }
+    .icon.selected {
+      background: rgba(100, 255, 180, 0.14);
+      border-color: var(--green-border);
+    }
+    .icon-emoji {
+      font-size: 38px;
+      filter: drop-shadow(0 2px 8px rgba(0,0,0,0.6));
+      line-height: 1;
+    }
+    .icon-label {
+      color: rgba(255,255,255,0.85);
+      font-size: 10px;
+      text-align: center;
+      letter-spacing: 0.4px;
+      white-space: nowrap;
+    }
+    /* Tooltip above icon on hover */
+    .icon::before {
+      content: attr(data-label);
+      position: absolute;
+      bottom: calc(100% + 10px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(10,14,20,0.92);
+      border: 1px solid var(--green-border);
+      color: var(--green);
+      font-size: 11px;
+      padding: 3px 10px;
+      border-radius: 6px;
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s;
+      letter-spacing: 1px;
+    }
+    .icon:hover::before { opacity: 1; }
+
+    /* ── Windows ── */
+    .window {
+      position: absolute;
+      min-width: 340px;
+      min-height: 240px;
+      background: var(--bg-window);
+      border: 1px solid var(--green-border);
+      border-radius: 10px;
+      box-shadow:
+        0 24px 80px rgba(0,0,0,0.8),
+        0 0 0 1px rgba(255,255,255,0.04),
+        inset 0 1px 0 rgba(255,255,255,0.05);
+      z-index: 100;
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+      animation: windowOpen 0.08s ease;
+    }
+    @keyframes windowOpen {
+      from { opacity: 0; transform: scale(0.97) translateY(4px); }
+      to   { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .window.active { display: flex; }
+
+    /* ── Titlebar ── */
+    .titlebar {
+      display: flex;
+      align-items: center;
+      padding: 9px 12px;
+      background: var(--bg-titlebar);
+      border-bottom: 1px solid var(--green-border);
+      cursor: move;
+      flex-shrink: 0;
+      gap: 10px;
+    }
+    .win-controls { display: flex; gap: 7px; }
+    .wbtn {
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      border: none;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: filter 0.15s, transform 0.1s;
+    }
+    .wbtn:hover { filter: brightness(1.25); transform: scale(1.1); }
+    .wbtn-close { background: #ff5f57; }
+    .wbtn-min   { background: #febc2e; }
+    .wbtn-max   { background: #28c840; }
+    .win-title {
+      flex: 1;
+      text-align: center;
+      color: var(--green-dim);
+      font-size: 11px;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+    }
+    .win-spacer { width: 52px; }
+
+    /* ── Window body ── */
+    .win-body {
+      padding: 22px 24px;
+      overflow-y: auto;
+      flex: 1;
+      color: var(--text);
+      font-size: 13px;
+      line-height: 1.75;
+    }
+    .win-body::-webkit-scrollbar { width: 5px; }
+    .win-body::-webkit-scrollbar-track { background: transparent; }
+    .win-body::-webkit-scrollbar-thumb { background: var(--green-border); border-radius: 3px; }
+
+    /* ── Content typography ── */
+    .prompt { color: var(--green-dim); display: block; margin-bottom: 16px; font-size: 12px; }
+    .win-body h1 {
+      font-size: 22px;
+      color: var(--green);
+      letter-spacing: 2px;
+      margin-bottom: 4px;
+    }
+    .subtitle { color: var(--green-dim); font-size: 11px; letter-spacing: 1px; margin-bottom: 20px; }
+    .win-body h2 {
+      font-size: 11px;
+      color: var(--green-dim);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      border-bottom: 1px solid var(--green-border);
+      padding-bottom: 4px;
+      margin: 20px 0 10px;
+    }
+    .win-body p { color: var(--text-dim); margin-bottom: 8px; }
+    .win-body strong { color: var(--text); }
+    .arrow { color: var(--green-dim); margin-right: 6px; }
+
+    /* ── Tags ── */
+    .tag {
+      display: inline-block;
+      padding: 2px 7px;
+      background: var(--green-faint);
+      border: 1px solid var(--green-border);
+      border-radius: 3px;
+      font-size: 10px;
+      color: var(--green-dim);
+      margin: 4px 3px 0 0;
+    }
+
+    /* ── Projects grid ── */
+    .projects-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 4px;
+    }
+    .project-card {
+      background: var(--green-faint);
+      border: 1px solid var(--green-border);
+      border-radius: 7px;
+      padding: 14px;
+      transition: background 0.2s, border-color 0.2s, transform 0.15s;
+      cursor: default;
+    }
+    .project-card:hover {
+      background: rgba(100,255,180,0.1);
+      border-color: rgba(100,255,180,0.4);
+      transform: translateY(-2px);
+    }
+    .project-card h3 { color: var(--green); font-size: 13px; margin-bottom: 6px; }
+    .project-card p  { font-size: 11.5px; color: var(--text-dim); line-height: 1.55; }
+
+    /* ── Contact links ── */
+    .contact-link {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 11px 0;
+      border-bottom: 1px solid var(--green-border);
+      color: var(--text-dim);
+      text-decoration: none;
+      transition: color 0.15s;
+      font-size: 13px;
+    }
+    .contact-link:hover { color: var(--green); }
+    .contact-link:last-child { border-bottom: none; }
+    .contact-icon { font-size: 20px; width: 28px; text-align: center; }
+    .contact-label { font-size: 10px; color: var(--green-dim); letter-spacing: 1.5px; margin-bottom: 2px; }
+
+    /* ── Resume section ── */
+    .resume-entry { margin-bottom: 14px; }
+    .resume-entry .role { color: var(--green); font-size: 13px; }
+    .resume-entry .org  { color: var(--text-dim); font-size: 12px; }
+    .resume-entry .date { color: var(--green-dim); font-size: 11px; margin-bottom: 3px; }
+    .resume-entry .desc { color: var(--text-dim); font-size: 11.5px; line-height: 1.5; }
+
+    /* ── Award cards ── */
+    .award-card {
+      border: 1px solid var(--green-border);
+      border-left: 3px solid var(--green);
+      border-radius: 4px;
+      background: rgba(100,255,180,0.03);
+      padding: 12px 14px;
+      margin-bottom: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .award-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .award-icon { font-size: 18px; flex-shrink: 0; }
+    .award-meta { flex: 1; }
+    .award-title { color: var(--text); font-size: 13px; font-weight: bold; }
+    .award-org   { color: var(--text-dim); font-size: 11px; margin-top: 1px; }
+    .award-year  {
+      font-size: 10px;
+      letter-spacing: 1.5px;
+      color: var(--green);
+      background: var(--green-faint);
+      border: 1px solid var(--green-border);
+      border-radius: 3px;
+      padding: 2px 7px;
+      flex-shrink: 0;
+      align-self: flex-start;
+    }
+    .award-desc { color: var(--text-dim); font-size: 11.5px; line-height: 1.55; }
+
+    /* ── Taskbar ── */
+    #taskbar {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: 46px;
+      background: rgb(6, 8, 12);
+      border-top: 1px solid var(--green-border);
+      display: flex;
+      align-items: center;
+      padding: 0 14px;
+      z-index: 9000;
+      gap: 6px;
+    }
+    #taskbar-start {
+      font-size: 18px;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 6px;
+      transition: background 0.15s;
+      border: 1px solid transparent;
+    }
+    #taskbar-start:hover {
+      background: var(--green-faint);
+      border-color: var(--green-border);
+    }
+    #taskbar-divider {
+      width: 1px;
+      height: 24px;
+      background: var(--green-border);
+      margin: 0 4px;
+    }
+    #taskbar-items {
+      display: flex;
+      gap: 4px;
+      flex: 1;
+      overflow: hidden;
+    }
+    .tb-item {
+      padding: 4px 12px;
+      background: var(--green-faint);
+      border: 1px solid var(--green-border);
+      border-radius: 5px;
+      color: var(--green-dim);
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      cursor: pointer;
+      letter-spacing: 1px;
+      white-space: nowrap;
+      transition: background 0.15s, color 0.15s;
+    }
+    .tb-item:hover, .tb-item.focused {
+      background: rgba(100,255,180,0.18);
+      color: var(--green);
+    }
+    .tb-item.minimized { opacity: 0.5; }
+    #taskbar-right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    #wallpaper-btn {
+      color: var(--green-dim);
+      font-size: 16px;
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 4px;
+      transition: color 0.15s;
+      border: none;
+      background: none;
+    }
+    #wallpaper-btn:hover { color: var(--green); }
+    #clock {
+      color: var(--green-dim);
+      font-size: 11.5px;
+      letter-spacing: 2px;
+      font-family: 'Courier New', monospace;
+      white-space: nowrap;
+      min-width: 160px;
+      text-align: right;
+    }
+
+    /* ── Resize handle ── */
+    .resize-handle {
+      position: absolute;
+      bottom: 0; right: 0;
+      width: 18px; height: 18px;
+      cursor: se-resize;
+    }
+    .resize-handle::after {
+      content: '';
+      position: absolute;
+      bottom: 4px; right: 4px;
+      width: 8px; height: 8px;
+      border-right: 2px solid var(--green-border);
+      border-bottom: 2px solid var(--green-border);
+    }
+
+    /* ── Terminal window ── */
+    #win-terminal .win-body {
+      padding: 14px 18px;
+      display: flex;
+      flex-direction: column;
+    }
+    #terminal-header {
+      color: var(--green-dim);
+      font-size: 11px;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--green-border);
+    }
+    #terminal-lines {
+      flex: 1;
+      overflow-y: auto;
+      margin-bottom: 8px;
+      font-size: 12px;
+    }
+    #terminal-lines::-webkit-scrollbar { width: 4px; }
+    #terminal-lines::-webkit-scrollbar-thumb { background: var(--green-border); }
+    .t-cmd { color: var(--green); }
+    .t-out { color: var(--text-dim); margin: 2px 0 8px 0; white-space: pre-wrap; }
+    .t-err { color: rgba(255,100,100,0.75); margin: 2px 0 8px 0; }
+    .t-prompt-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-top: 1px solid var(--green-border);
+      padding-top: 8px;
+      flex-shrink: 0;
+    }
+    .t-ps1 { color: var(--green-dim); font-size: 12px; white-space: nowrap; }
+    #terminal-input {
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text);
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      flex: 1;
+      caret-color: var(--green);
+    }
+
+    /* ── Boot screen ── */
+    #boot {
+      position: fixed;
+      inset: 0;
+      background: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 99999;
+      transition: opacity 0.9s ease;
+    }
+    #boot-inner {
+      max-width: 520px;
+      width: 90%;
+    }
+    #boot-logo {
+      font-size: 11px;
+      color: var(--green);
+      letter-spacing: 1px;
+      margin-bottom: 24px;
+      white-space: pre;
+      line-height: 1.3;
+    }
+    .boot-line {
+      font-family: 'Courier New', monospace;
+      font-size: 12.5px;
+      line-height: 2;
+      opacity: 0;
+      transition: opacity 0.25s ease;
+      color: rgba(200,200,200,0.7);
+    }
+    .boot-line.ok   { color: rgba(80,255,120,0.85); }
+    .boot-line.hi   { color: var(--green); font-size: 15px; letter-spacing: 3px; }
+    .boot-line.vis  { opacity: 1; }
+    #boot-bar-wrap {
+      margin-top: 20px;
+      height: 3px;
+      background: rgba(100,255,180,0.1);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    #boot-bar {
+      height: 100%;
+      background: var(--green);
+      width: 0%;
+      transition: width 0.1s linear;
+      border-radius: 2px;
+      box-shadow: 0 0 10px var(--green);
+    }
+
+    /* ── Right-click menu ── */
+    #ctx-menu {
+      position: fixed;
+      background: rgba(10,12,18,0.97);
+      border: 1px solid var(--green-border);
+      border-radius: 8px;
+      padding: 6px 0;
+      z-index: 99000;
+      display: none;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.7);
+      min-width: 180px;
+    }
+    .ctx-item {
+      padding: 7px 16px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      color: var(--text-dim);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: background 0.1s, color 0.1s;
+      letter-spacing: 0.5px;
+    }
+    .ctx-item:hover { background: var(--green-faint); color: var(--green); }
+    .ctx-sep { height: 1px; background: var(--green-border); margin: 4px 0; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+    /* ── Game of Life ── */
+    #life-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      border-top: 1px solid var(--green-border);
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+    .life-btn {
+      background: var(--green-faint);
+      border: 1px solid var(--green-border);
+      border-radius: 5px;
+      color: var(--green-dim);
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      padding: 4px 10px;
+      cursor: pointer;
+      letter-spacing: 0.5px;
+      transition: background 0.12s, color 0.12s;
+    }
+    .life-btn:hover, .life-btn.active { background: rgba(100,255,180,0.2); color: var(--green); }
+    .life-sep { width: 1px; height: 18px; background: var(--green-border); margin: 0 2px; }
+    .life-stat {
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      letter-spacing: 0.5px;
+    }
+    .life-stat span { color: var(--green); }
+    #life-speed {
+      -webkit-appearance: none;
+      width: 70px; height: 3px;
+      background: var(--green-border);
+      border-radius: 2px; outline: none; cursor: pointer;
+    }
+    #life-speed::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 6px rgba(100,255,180,0.6);
+    }
+    #life-canvas { cursor: crosshair; }
+
+    /* ── Travel ── */
+    #travel-sidebar {
+      width: 150px;
+      flex-shrink: 0;
+      border-right: 1px solid var(--green-border);
+      padding: 16px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .travel-city {
+      padding: 9px 16px;
+      font-size: 12px;
+      color: var(--text-dim);
+      cursor: pointer;
+      border-right: 2px solid transparent;
+      transition: background 0.12s, color 0.12s, border-color 0.12s;
+      letter-spacing: 0.5px;
+    }
+    .travel-city:hover { background: var(--green-faint); color: var(--text); }
+    .travel-city.active { color: var(--green); border-right-color: var(--green); background: var(--green-faint); }
+    #travel-content { flex: 1; overflow-y: auto; padding: 20px 22px; }
+    #travel-content::-webkit-scrollbar { width: 5px; }
+    #travel-content::-webkit-scrollbar-thumb { background: var(--green-border); }
+    .city-panel { display: none; }
+    .city-panel.active { display: block; }
+    .city-header { margin-bottom: 20px; }
+    .city-name { font-size: 20px; color: var(--green); letter-spacing: 2px; margin-bottom: 4px; }
+    .city-tagline { font-size: 11px; color: var(--text-dim); letter-spacing: 0.5px; }
+    .travel-section { margin-bottom: 18px; }
+    .travel-section-title {
+      font-size: 10px;
+      color: var(--green-dim);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      border-bottom: 1px solid var(--green-border);
+      padding-bottom: 4px;
+      margin-bottom: 8px;
+    }
+    .travel-item {
+      display: flex;
+      gap: 10px;
+      padding: 4px 0;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .travel-item.full { color: var(--text-dim); }
+    .travel-item-name { color: var(--text); min-width: 160px; flex-shrink: 0; }
+    .travel-item-note { color: var(--text-dim); }
+
+    /* ── Reading ── */
+    .book-entry {
+      padding: 10px 0 10px;
+      border-bottom: 1px solid rgba(100,255,180,0.08);
+    }
+    .book-entry:last-of-type { border-bottom: none; }
+    .book-title  { color: var(--text); font-size: 13px; margin-bottom: 2px; }
+    .book-author { color: var(--green-dim); font-size: 11px; letter-spacing: 0.5px; margin-bottom: 4px; }
+    .book-note   { color: var(--text-dim); font-size: 11.5px; line-height: 1.5; }
+
+    /* ── Guestbook ── */
+    #gb-entries {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+    .gb-entry {
+      background: var(--green-faint);
+      border: 1px solid var(--green-border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+    .gb-entry-sticker { font-size: 22px; flex-shrink: 0; line-height: 1.2; }
+    .gb-entry-body    { flex: 1; min-width: 0; }
+    .gb-entry-name    { color: var(--green); font-size: 12px; letter-spacing: 1px; margin-bottom: 3px; }
+    .gb-entry-msg     { color: var(--text-dim); font-size: 12px; line-height: 1.55; word-break: break-word; }
+    .gb-entry-date    { color: rgba(100,255,180,0.25); font-size: 10px; margin-top: 5px; }
+    .gb-empty         { color: var(--text-dim); font-size: 12px; font-style: italic; margin-bottom: 20px; }
+
+    #gb-form-wrap { border-top: 1px solid var(--green-border); padding-top: 20px; }
+    .gb-field     { margin-bottom: 14px; }
+    .gb-label     { display: block; color: var(--green-dim); font-size: 10px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 6px; }
+    .gb-input {
+      width: 100%;
+      background: rgba(100,255,180,0.05);
+      border: 1px solid var(--green-border);
+      border-radius: 5px;
+      padding: 7px 10px;
+      color: var(--text);
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .gb-input:focus   { border-color: var(--green-dim); }
+    .gb-textarea      { resize: vertical; min-height: 70px; }
+    #gb-charcount     { text-align: right; font-size: 10px; color: rgba(100,255,180,0.3); margin-top: 3px; }
+    #gb-stickers      { display: flex; gap: 8px; flex-wrap: wrap; }
+    .sticker {
+      font-size: 22px;
+      cursor: pointer;
+      padding: 4px 6px;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      transition: background 0.12s, border-color 0.12s, transform 0.1s;
+      line-height: 1;
+    }
+    .sticker:hover    { background: var(--green-faint); transform: scale(1.2); }
+    .sticker.picked   { background: rgba(100,255,180,0.18); border-color: var(--green-border); }
+    #gb-error         { color: rgba(255,120,100,0.85); font-size: 11px; margin-bottom: 10px; min-height: 16px; }
+    #gb-submit {
+      background: var(--green-faint);
+      border: 1px solid var(--green-border);
+      border-radius: 6px;
+      color: var(--green);
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      letter-spacing: 1.5px;
+      padding: 8px 20px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    #gb-submit:hover  { background: rgba(100,255,180,0.2); }
+  </style>
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    /* ── Leaflet overrides ── */
+    .leaflet-container { background: rgb(6,10,14) !important; font-family: 'Courier New', monospace; }
+    .leaflet-control-zoom a {
+      background: rgb(10,14,20) !important;
+      color: rgba(100,255,180,0.7) !important;
+      border-color: rgba(100,255,180,0.25) !important;
+    }
+    .leaflet-control-zoom a:hover { color: rgba(100,255,180,1) !important; }
+    .leaflet-control-attribution { display: none; }
+    .map-pin {
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      background: rgba(100,255,180,0.55);
+      border: 1.5px solid rgba(100,255,180,0.9);
+      box-shadow: 0 0 10px rgba(100,255,180,0.5);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .map-pin.active {
+      width: 14px; height: 14px;
+      background: rgba(100,255,180,0.95);
+      box-shadow: 0 0 18px rgba(100,255,180,0.85), 0 0 6px rgba(100,255,180,1);
+    }
+    .leaflet-tooltip {
+      background: rgb(8,12,16) !important;
+      border: 1px solid rgba(100,255,180,0.3) !important;
+      color: rgba(100,255,180,0.9) !important;
+      font-family: 'Courier New', monospace !important;
+      font-size: 11px !important;
+      letter-spacing: 1px !important;
+      padding: 4px 10px !important;
+      border-radius: 5px !important;
+      box-shadow: none !important;
+    }
+    .leaflet-tooltip::before { display: none !important; }
+  </style>
+</head>
+<body>
+
+<!-- Boot screen -->
+<div id="boot">
+  <div id="boot-inner">
+    <div id="boot-logo">  ██████╗  ██████╗ ██████╗ ████████╗
+  ██╔══██╗██╔═══██╗██╔══██╗╚══██╔══╝
+  ██████╔╝██║   ██║██████╔╝   ██║
+  ██╔═══╝ ██║   ██║██╔══██╗   ██║
+  ██║     ╚██████╔╝██║  ██║   ██║
+  ╚═╝      ╚═════╝ ╚═╝  ╚═╝   ╚═╝  </div>
+    <div id="boot-lines"></div>
+    <div id="boot-bar-wrap"><div id="boot-bar"></div></div>
+  </div>
+</div>
+
+<!-- Overlays -->
+<div id="scanlines"></div>
+<div id="vignette"></div>
+<canvas id="bg-canvas"></canvas>
+
+<!-- Desktop -->
+<div id="desktop"></div>
+
+<!-- Hero -->
+<div id="hero">
+  <div id="hero-name">MAYA</div>
+  <div id="hero-sub">phd student · bioml researcher · builder</div>
+  <div id="hero-hint">click an icon to open  ·  right-click for menu  ·  try the terminal</div>
+</div>
+
+<!-- Dock -->
+<div id="dock"></div>
+
+<!-- ── Windows ────────────────────────────────────────────────────── -->
+
+<!-- About -->
+<div class="window" id="win-about">
+  <div class="titlebar">
+    <div class="win-controls">
+      <button class="wbtn wbtn-close" data-win="win-about"></button>
+      <button class="wbtn wbtn-min"   data-win="win-about"></button>
+      <button class="wbtn wbtn-max"   data-win="win-about"></button>
+    </div>
+    <div class="win-title">~/about_me</div>
+    <div class="win-spacer"></div>
+  </div>
+  <div class="win-body">
+    <span class="prompt">$ cat about.txt</span>
+    <h1>Hi, I'm Maya</h1>
+    <div class="subtitle">PhD Student · Computational Biology · Sorbonne Université, Paris</div>
+    <p>
+      I develop representation learning methods to model how mutations reshape
+      protein function and interactions.
+    </p>
+    <p>
+      My work uses protein language models to study mutational effects, with a focus
+      on understanding how sequence representations encode changes in stability
+      and interaction behavior.
+    </p>
+    <h2>// interests</h2>
+    <p>Protein biophysics · Representation learning · Scientific computing · Open source · Languages</p>
+    <h2>// currently</h2>
+    <p>
+      <span class="arrow">→</span> PhD at Sorbonne (Paris)<br>
+      <span class="arrow">→</span> Building models for mutational effect prediction using protein language models<br>
+      <span class="arrow">→</span> Exploring operator-based views of biological representations<br>
+      <span class="arrow">→</span> Probably drinking matcha and thinking about embeddings
+    </p>
+    <h2>// fun facts</h2>
+    <p>
+      <span class="arrow">→</span> Stanford CS (EE/AI) to Paris<br>
+      <span class="arrow">→</span> Speak multiple languages and always learning more<br>
+      <span class="arrow">→</span> Interested in theory of mind and consciousness. working on projects at that intersection
+    </p>
+  </div>
+  <div class="resize-handle"></div>
+</div>
+
+<!-- Projects -->
+<div class="window" id="win-projects">
+  <div class="titlebar">
+    <div class="win-controls">
+      <button class="wbtn wbtn-close" data-win="win-projects"></button>
+      <button class="wbtn wbtn-min"   data-win="win-projects"></button>
+      <button class="wbtn wbtn-max"   data-win="win-projects"></button>
+    </div>
+    <div class="win-title">~/projects</div>
+    <div class="win-spacer"></div>
+  </div>
+  <div class="win-body">
+    <span class="prompt">$ ls -la projects/</span>
+    <div class="projects-grid">
+      <div class="project-card">
+        <h3>Alanine Scanning Predictor <span style="font-size:10px; color:var(--green-dim); letter-spacing:1.5px;">IN PROGRESS</span></h3>
+        <p>Predicting mutational effects from alanine substitutions using ESM-2 embeddings.</p>
+        <span class="tag">ESM-2</span><span class="tag">PyTorch</span><span class="tag">Protein ML</span>
+      </div>
+      <div class="project-card" style="opacity:0.5; border-style: dashed;">
+        <h3>more coming soon</h3>
+        <p>more soon. → <a href="https://github.com/mayacz22" target="_blank" style="color:var(--green-dim);">github.com/mayacz22</a></p>
+      </div>
+    </div>
+  </div>
+  <div class="resize-handle"></div>
+</div>
+
+<!-- Resume -->
+<div class="window" id="win-resume">
+  <div class="titlebar">
+    <div class="win-controls">
+      <button class="wbtn wbtn-close" data-win="win-resume"></button>
+      <button class="wbtn wbtn-min"   data-win="win-resume"></button>
+      <button class="wbtn wbtn-max"   data-win="win-resume"></button>
+    </div>
+    <div class="win-title">~/resume</div>
+    <div class="win-spacer"></div>
+  </div>
+  <div class="win-body">
+    <span class="prompt">$ cat resume.txt</span>
+
+    <div style="display:flex; align-items:center; gap:14px; margin-bottom:2px; flex-wrap:wrap;">
+      <!-- add sorbonne-logo.png to the same folder to enable: -->
+      <!-- <img src="sorbonne-logo.png" alt="Sorbonne" style="height:32px; opacity:0.6; filter:grayscale(1) brightness(2);"> -->
+      <h1 style="margin:0">Maya <span style="color:var(--green)">Czeneszew</span></h1>
+    </div>
+    <div class="subtitle" style="margin-bottom:20px;">
+      paris, france
+      &nbsp;·&nbsp; <a href="https://github.com/mayacz22" target="_blank" style="color:var(--green-dim); text-decoration:none;">github/mayacz22</a>
+      &nbsp;·&nbsp; <span onclick="openWindow('win-contact')" style="color:var(--green-dim); cursor:pointer; text-decoration:underline dotted;">contact</span>
+    </div>
+
+    <h2>// education</h2>
+    <div class="resume-entry">
+      <div class="role">PhD, Computational Biology</div>
+      <div class="date">2026 – present</div>
+      <div class="org">Sorbonne University · LBCQ (Laboratoire de Biologie Computationnelle et Quantitative)</div>
+      <div class="desc">
+        Developing representation learning methods to model how mutations reshape protein function and interaction landscapes.<br>
+        Advisor: Professor Alessandra Carbone
+      </div>
+    </div>
+    <div class="resume-entry">
+      <div class="role">MS, Computer Science (AI Concentration)</div>
+      <div class="date">2024</div>
+      <div class="org">Stanford University</div>
+    </div>
+    <div class="resume-entry">
+      <div class="role">BS, Electrical Engineering</div>
+      <div class="date">2023</div>
+      <div class="org">Stanford University</div>
+    </div>
+
+    <h2>// experience</h2>
+    <div class="resume-entry">
+      <div class="role">Founding Engineer</div>
+      <div class="date">Apr 2025 – Dec 2025</div>
+      <div class="org">14.ai · San Francisco, CA</div>
+      <div class="desc">
+        Forward-deployed engineering at an early-stage AI startup. Translated complex AI workflows
+        (agents, integrations, customer support automation) into customer-facing technical content.
+        Worked directly with enterprise clients on onboarding and production deployments;
+        delivered workshops and demos at scale.
+      </div>
+    </div>
+    <div class="resume-entry">
+      <div class="role">Solution Architect Intern, Healthcare &amp; Life Sciences</div>
+      <div class="date">Jun 2024 – Sep 2024</div>
+      <div class="org">NVIDIA · Paris, France</div>
+      <div class="desc">
+        Provided technical support for a computational biology research project in collaboration
+        with Microsoft Research, contributing to FLIP2, a protein fitness benchmark
+        (bioRxiv, 2026). Built 3 end-to-end demos showcasing DNABERT capabilities including
+        custom dataset pretraining; contributed to the BioNeMo framework.
+      </div>
+    </div>
+    <div class="resume-entry">
+      <div class="role">Machine Learning Engineer Intern</div>
+      <div class="date">Jan 2024 – Jun 2024</div>
+      <div class="org">Basic.Space · Los Angeles, CA</div>
+      <div class="desc">
+        Built an ML pipeline for automatic tag prediction using BERT embeddings, TF-IDF, and
+        Random Forest. Improved accuracy via feature engineering; presented findings to leadership.
+      </div>
+    </div>
+    <div class="resume-entry">
+      <div class="role">Research Assistant, Machine Learning</div>
+      <div class="date">Jun 2023 – Aug 2023</div>
+      <div class="org">LBCQ, Sorbonne University · Paris</div>
+      <div class="desc">
+        Fine-tuned ESM-2, ProtBERT, and ProtT5 with HuggingFace and PyTorch. Designed
+        preprocessing pipelines for protein sequence data; ran hyperparameter tuning on benchmark datasets.
+      </div>
+    </div>
+    <div class="resume-entry">
+      <div class="role">Research Assistant, Wearable Devices</div>
+      <div class="date">Jan 2023 – Jun 2023</div>
+      <div class="org">Snyder Lab, Stanford School of Medicine · Stanford, CA</div>
+      <div class="desc">
+        Designed data processing pipelines for large-scale wearable device datasets. Implemented
+        ML solutions for personalized medicine; built a pandas dashboard for data visualization.
+      </div>
+    </div>
+
+    <h2>// publications</h2>
+    <p style="color:var(--text-dim); font-size:12px; line-height:1.8">
+      Didi K, Alamdari S, Lu AX, Wittmann B, Johnston KE, Amini AA, Madani A,
+      <strong style="color:var(--text)">Czeneszew M</strong>, Dallago C, Yang KK.<br>
+      "FLIP2: Expanding Protein Fitness Landscape Benchmarks for Real-World Machine Learning Applications."<br>
+      <em>bioRxiv</em>, 2026. &nbsp;
+      <a href="https://doi.org/10.64898/2026.02.23.707496" target="_blank" style="color:var(--green-dim);">doi:10.64898/2026.02.23.707496</a>
+      &nbsp;·&nbsp;
+      <a href="https://flip.protein.properties/" target="_blank" style="color:var(--green-dim);">flip.protein.properties</a>
+    </p>
+
+    <h2>// skills</h2>
+    <p style="font-size:12px; line-height:2.1; color:var(--text-dim)">
+      <span style="color:var(--green-dim)">Code &amp; Tools:</span>&nbsp; Python · PyTorch · HuggingFace · NumPy · SciPy · Git · LaTeX · HPC<br>
+      <span style="color:var(--green-dim)">Research:</span>&nbsp; Protein Language Models · Representation Learning · Fitness Landscape Benchmarking · GPU-accelerated ML<br>
+      <span style="color:var(--green-dim)">Communication:</span>&nbsp; Technical Demos · Customer Workshops · Documentation
+    </p>
+
+    <h2>// honors &amp; awards</h2>
+    <div class="award-card">
+      <div class="award-header">
+        <span class="award-icon">🚀</span>
+        <div class="award-meta">
+          <div class="award-title">Accel Leadership Fellow</div>
+          <div class="award-org">Accel Fellowship Program · Stanford, CA</div>
+        </div>
+        <span class="award-year">2024</span>
+      </div>
+      <div class="award-desc">Selected from 1,000+ applicants for a competitive program at the intersection of venture capital, entrepreneurship, and emerging technology.</div>
+    </div>
+    <div class="award-card">
+      <div class="award-header">
+        <span class="award-icon">⚡</span>
+        <div class="award-meta">
+          <div class="award-title">Design Project Award, Electrical Engineering</div>
+          <div class="award-org">Stanford University EE Department Awards Ceremony</div>
+        </div>
+        <span class="award-year">2023</span>
+      </div>
+      <div class="award-desc">One of two projects per graduating class selected for outstanding design work at the Stanford EE Department Awards Ceremony.</div>
+    </div>
+    <div class="award-card">
+      <div class="award-header">
+        <span class="award-icon">🧬</span>
+        <div class="award-meta">
+          <div class="award-title">Silver Medal, iGEM International Competition</div>
+          <div class="award-org">iGEM · Cambridge, MA · 5,000+ participants</div>
+        </div>
+        <span class="award-year">2021</span>
+      </div>
+      <div class="award-desc">Built <em>Citrus Safe</em>: engineered Baker's yeast expressing a butterfly enzyme (CYP6B1) to degrade furanocoumarins in grapefruit, preventing life-threatening drug interactions. Proof-of-concept for a therapeutic probiotic.</div>
+    </div>
+
+    <div style="text-align:center; margin-top:24px; padding-top:16px; border-top: 1px solid var(--green-border); display:flex; justify-content:center; gap:32px;">
+      <span onclick="openWindow('win-contact')" style="color:var(--green-dim); font-size:12px; letter-spacing:1.5px; cursor:pointer;">→ &nbsp;get in touch</span>
+      <a href="resume.pdf" download style="color:var(--green-dim); font-size:12px; letter-spacing:1.5px; text-decoration:none;">↓ &nbsp;download PDF</a>
+    </div>
+  </div>
+  <div class="resize-handle"></div>
+</div>
+
+<!-- Contact -->
+<div class="window" id="win-contact">
+  <div class="titlebar">
+    <div class="win-controls">
+      <button class="wbtn wbtn-close" data-win="win-contact"></button>
+      <button class="wbtn wbtn-min"   data-win="win-contact"></button>
+      <button class="wbtn wbtn-max"   data-win="win-contact"></button>
+    </div>
+    <div class="win-title">~/contact</div>
+    <div class="win-spacer"></div>
+  </div>
+  <div class="win-body">
+    <span class="prompt">$ whoami --contact</span>
+    <p style="margin-bottom:20px; color:var(--text-dim)">
+      Always happy to chat about proteins, ML, PhD life, or potential collaborations.
+    </p>
+    <a class="contact-link" href="mailto:mayaczeneszew@gmail.com">
+      <span class="contact-icon">✉</span>
+      <div><div class="contact-label">EMAIL</div>mayaczeneszew@gmail.com</div>
+    </a>
+    <a class="contact-link" href="https://github.com/mayacz22" target="_blank">
+      <span class="contact-icon">⌥</span>
+      <div><div class="contact-label">GITHUB</div>github.com/mayacz22</div>
+    </a>
+    <a class="contact-link" href="https://www.linkedin.com/in/maya-czeneszew/" target="_blank">
+      <span class="contact-icon" style="font-size:14px; font-weight:bold;">in</span>
+      <div><div class="contact-label">LINKEDIN</div>linkedin.com/in/maya-czeneszew</div>
+    </a>
+  </div>
+  <div class="resize-handle"></div>
+</div>
+
+<!-- Matcha -->
+<div class="window" id="win-matcha">
+  <div class="titlebar">
+    <div class="win-controls">
+      <button class="wbtn wbtn-close" data-win="win-matcha"></button>
+      <button class="wbtn wbtn-min"   data-win="win-matcha"></button>
+      <button class="wbtn wbtn-max"   data-win="win-matcha"></button>
+    </div>
+    <div class="win-title">~/matcha_world_tour</div>
+    <div class="win-spacer"></div>
+  </div>
+  <div class="win-body" style="padding:0; display:flex; flex-direction:column; height:100%;">
+
+    <!-- World map -->
+    <div style="flex-shrink:0; border-bottom:1px solid var(--green-border);">
+      <div id="matcha-map" style="width:100%; height:190px;"></div>
+    </div>
+
+    <!-- Sidebar + content -->
+    <div style="display:flex; flex:1; overflow:hidden;">
+      <div id="travel-sidebar">
+        <div style="padding:12px 16px 6px; font-size:10px; color:var(--green-dim); letter-spacing:2px;">CITIES</div>
+        <div class="travel-city active" data-city="athens">🇺🇸 SF</div>
+        <div class="travel-city" data-city="paris">🇫🇷 Paris</div>
+        <div class="travel-city" data-city="city3">🇺🇸 NYC</div>
+        <div class="travel-city" data-city="city4">🇺🇸 Minneapolis</div>
+        <div class="travel-city" data-city="warsaw">🇵🇱 Warsaw</div>
+      </div>
+      <div id="travel-content">
+
+      <div class="city-panel active" id="city-athens">
+        <div class="city-header">
+          <div class="city-name">San Francisco 🍵</div>
+          <div class="city-tagline">the matcha here never misses · I always find the strawberry matcha</div>
+        </div>
+        <div class="travel-section">
+          <div class="travel-section-title">🍵 matcha spots</div>
+          <div class="travel-item">
+            <span class="travel-item-name">Matcha Cafe Maiko</span>
+            <span class="travel-item-note">strawberry matcha</span>
+          </div>
+          <div class="travel-item">
+            <span class="travel-item-name">Maruwu Seicha</span>
+            <span class="travel-item-note">incredible seasonal flavors, always rotating</span>
+          </div>
+          <div class="travel-item">
+            <span class="travel-item-name">Out There Coffee Roasters</span>
+            <span class="travel-item-note">worth the detour</span>
+          </div>
+        </div>
+        <div class="travel-section">
+          <div class="travel-section-title">⭐ maya's pick</div>
+          <div class="travel-item full">Maruwu Seicha. seasonal menu, never disappoints.</div>
+        </div>
+      </div>
+
+      <div class="city-panel" id="city-paris">
+        <div class="city-header">
+          <div class="city-name">Paris 🍵</div>
+          <div class="city-tagline">home base · on an ongoing quest for perfect ceremonial grade</div>
+        </div>
+        <div class="travel-section">
+          <div class="travel-section-title">🍵 matcha spots</div>
+          <div class="travel-item">
+            <span class="travel-item-name">GoodNews Cafe</span>
+            <span class="travel-item-note">order the passionfruit matcha</span>
+          </div>
+          <div class="travel-item">
+            <span class="travel-item-name">Kura-ge</span>
+            <span class="travel-item-note">banana bread matcha, trust</span>
+          </div>
+          <div class="travel-item">
+            <span class="travel-item-name">Coffee Arts Paris</span>
+            <span class="travel-item-note">tiramisu matcha, yes really</span>
+          </div>
+          <div class="travel-item">
+            <span class="travel-item-name">66matcha in the Marais</span>
+            <span class="travel-item-note">raspberry white chocolate matcha</span>
+          </div>
+        </div>
+        <div class="travel-section">
+          <div class="travel-section-title">⭐ maya's pick</div>
+          <div class="travel-item full">Kura-ge. start with the banana bread matcha, then explore. the blueberry and other seasonal flavors are just as good.</div>
+        </div>
+      </div>
+
+      <div class="city-panel" id="city-city3">
+        <div class="city-header">
+          <div class="city-name">New York City 🍵</div>
+          <div class="city-tagline">the matcha scene here is no joke</div>
+        </div>
+        <div class="travel-section">
+          <div class="travel-section-title">🍵 matcha spots</div>
+          <div class="travel-item">
+            <span class="travel-item-name">Pull Tab</span>
+            <span class="travel-item-note">guava matcha — get it</span>
+          </div>
+        </div>
+        <div class="travel-section">
+          <div class="travel-section-title">⭐ maya's pick</div>
+          <div class="travel-item full">[PLACEHOLDER: your go-to]</div>
+        </div>
+      </div>
+
+      <div class="city-panel" id="city-city4">
+        <div class="city-header">
+          <div class="city-name">Minneapolis 🍵</div>
+          <div class="city-tagline">underrated matcha city, genuinely</div>
+        </div>
+        <div class="travel-section">
+          <div class="travel-section-title">🍵 matcha spots</div>
+          <div class="travel-item">
+            <span class="travel-item-name">Rustica</span>
+            <span class="travel-item-note">lavender matcha</span>
+          </div>
+          <div class="travel-item">
+            <span class="travel-item-name">36 Cafe in St. Paul</span>
+            <span class="travel-item-note">banana pudding matcha. unexpected, necessary</span>
+          </div>
+        </div>
+        <div class="travel-section">
+          <div class="travel-section-title">⭐ maya's pick</div>
+          <div class="travel-item full">36 Cafe in St. Paul. saw it on social media and absolutely worth it. would recommend.</div>
+        </div>
+      </div>
+
+      <div class="city-panel" id="city-warsaw">
+        <div class="city-header">
+          <div class="city-name">Warsaw 🍵</div>
+          <div class="city-tagline">discovering the matcha scene · balance between tradition and innovation</div>
+        </div>
+        <div class="travel-section">
+          <div class="travel-section-title">🍵 matcha spots</div>
+          <div class="travel-item">
+            <span class="travel-item-name">Macza</span>
+            <span class="travel-item-note">incredible variety of flavors, amazing seasonal options</span>
+          </div>
+        </div>
+        <div class="travel-section">
+          <div class="travel-section-title">⭐ maya's pick</div>
+          <div class="travel-item full">Macza · the sweet & salty matcha is unexpected and perfect. definitely my go-to.</div>
+        </div>
+      </div>
+
+      </div>
+    </div><!-- end sidebar+content -->
+  </div>
+  <div class="resize-handle"></div>
+</div>
+
+<!-- Blog -->
+<div class="window" id="win-blog">
+  <div class="titlebar">
+    <div class="win-controls">
+      <button class="wbtn wbtn-close" data-win="win-blog"></button>
+      <button class="wbtn wbtn-min"   data-win="win-blog"></button>
+      <button class="wbtn wbtn-max"   data-win="win-blog"></button>
+    </div>
+    <div class="win-title">~/blog</div>
+    <div class="win-spacer"></div>
+  </div>
+  <div class="win-body" style="display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; height:100%; gap:0;">
+    <div style="font-size:48px; margin-bottom:20px; filter: drop-shadow(0 0 20px rgba(100,255,180,0.3));">✍️</div>
+    <div style="font-size:22px; color:var(--green); letter-spacing:4px; font-weight:bold; margin-bottom:12px;">COMING SOON</div>
+    <div style="color:var(--green-dim); font-size:11px; letter-spacing:2px; margin-bottom:32px;">~/blog is under construction</div>
+    <div style="color:var(--text-dim); font-size:12px; line-height:2; max-width:380px;">
+      I want to write about doing research in real time.<br>
+      What's working, what isn't, and what it actually<br>
+      feels like to be a first-year PhD student.<br>
+      Also language learning, life in Paris,<br>
+      and whatever I can't stop thinking about.
+    </div>
+    <div style="margin-top:32px; padding:14px 24px; border:1px solid var(--green-border); border-radius:8px; background:var(--green-faint);">
+      <div style="font-size:10px; color:var(--green-dim); letter-spacing:2px; margin-bottom:6px;">TOPICS IN THE QUEUE</div>
+      <div style="font-size:12px; color:var(--text-dim); line-height:2;">
+        representation learning in proteins<br>
+        why protein language models are the most exciting thing in biology right now<br>
+        first year of a PhD, honestly<br>
+        learning five languages at once
+      </div>
+    </div>
+    <div id="blog-cursor" style="margin-top:28px; font-size:13px; color:var(--green-dim); letter-spacing:1px;">
+      <span id="blog-typing"></span><span style="animation: blink 1s step-end infinite; color:var(--green);">█</span>
+    </div>
+  </div>
+  <div class="resize-handle"></div>
+</div>
+
+<!-- Reading -->
+<div class="window" id="win-reading">
+  <div class="titlebar">
+    <div class="win-controls">
+      <button class="wbtn wbtn-close" data-win="win-reading"></button>
+      <button class="wbtn wbtn-min"   data-win="win-reading"></button>
+      <button class="wbtn wbtn-max"   data-win="win-reading"></button>
+    </div>
+    <div class="win-title">~/reading</div>
+    <div class="win-spacer"></div>
+  </div>
+  <div class="win-body">
+    <span class="prompt">$ cat reading_list.txt</span>
+    <p style="margin-bottom: 20px; color: var(--text-dim); font-size: 12px;">I like a healthy mix of fiction and nonfiction. whatever pulls me in, really.</p>
+
+    <h2>// currently reading</h2>
+    <div class="book-entry">
+      <div class="book-title">Intermezzo</div>
+      <div class="book-author">Sally Rooney · fiction</div>
+      <div class="book-note">Her prose just flows so naturally. you get pulled into a character's mind without it ever feeling forced.</div>
+    </div>
+    <div class="book-entry">
+      <div class="book-title">Antifragile</div>
+      <div class="book-author">Nassim Nicholas Taleb · systems / philosophy</div>
+      <div class="book-note">What I love most is how he keeps finding the same idea hiding in completely different systems — finance, biology, architecture, history. That kind of cross-domain thinking is exactly what draws me to research.</div>
+    </div>
+    <div class="book-entry">
+      <div class="book-title">Mathematica</div>
+      <div class="book-author">David Bessis · mathematics</div>
+      <div class="book-note">Still very early in it, but already hooked on the way he frames mathematical thinking.</div>
+    </div>
+
+    <h2>// all-time favorites</h2>
+    <div class="book-entry">
+      <div class="book-title">The Art Of Living</div>
+      <div class="book-author">Thich Nhat Hanh · mindfulness</div>
+      <div class="book-note">the mindfulness exercises are everything. being present while washing dishes, walking.</div>
+    </div>
+    <div class="book-entry">
+      <div class="book-title">Fugitive Pieces</div>
+      <div class="book-author">Anne Michaels · fiction</div>
+      <div class="book-note">the way land becomes a character, how history lives in geography. the prose reads like poetry and it stays with you.</div>
+    </div>
+    <div class="book-entry">
+      <div class="book-title">[PLACEHOLDER: title]</div>
+      <div class="book-author">[PLACEHOLDER: author]</div>
+      <div class="book-note">[PLACEHOLDER: why it matters to you]</div>
+    </div>
+
+    <h2>// papers I keep recommending</h2>
+    <div class="book-entry">
+      <div class="book-title">Remarkable problem-solving ability of unicellular amoeboid organism and its mechanism</div>
+      <div class="book-author">Zhu, Kim, Hara, Aono · Royal Society of Open Science · 2018 · <a href="https://doi.org/10.1098/rsos.180396" target="_blank" style="color:var(--green-dim);">doi:10.1098/rsos.180396</a></div>
+      <div class="book-note">A slime mold solving the Traveling Salesman Problem. it's the perfect intersection of biology and computation. how biological systems approach optimization problems without traditional computing is exactly what fascinates me about this field.</div>
+      <div style="margin-top: 8px;">
+        <span class="tag">Natural Computing</span>
+      </div>
+    </div>
+  </div>
+  <div class="resize-handle"></div>
+</div>
+
+<!-- Conway's Game of Life -->
+<div class="window" id="win-life">
+  <div class="titlebar">
+    <div class="win-controls">
+      <button class="wbtn wbtn-close" data-win="win-life"></button>
+      <button class="wbtn wbtn-min"   data-win="win-life"></button>
+      <button class="wbtn wbtn-max"   data-win="win-life"></button>
+    </div>
+    <div class="win-title">conway's game of life</div>
+    <div class="win-spacer"></div>
+  </div>
+  <div class="win-body" style="padding:0; display:flex; flex-direction:column; height:100%;">
+    <div id="life-canvas-wrap" style="flex:1; position:relative; overflow:hidden;">
+      <canvas id="life-canvas" style="display:block;"></canvas>
+    </div>
+    <div id="life-controls">
+      <button class="life-btn" id="life-playbtn" onclick="LIFE.toggle()">▶ play</button>
+      <button class="life-btn" onclick="LIFE.stepOnce()">⏭ step</button>
+      <button class="life-btn" onclick="LIFE.randomize()">⚂ random</button>
+      <button class="life-btn" onclick="LIFE.clear()">⬜ clear</button>
+      <div class="life-sep"></div>
+      <label class="life-stat">
+        speed
+        <input id="life-speed" type="range" min="1" max="5" value="3" step="1"
+               oninput="LIFE.setSpeed(this.value)">
+      </label>
+      <div class="life-sep"></div>
+      <div class="life-stat">gen <span id="life-gen">0</span></div>
+      <div class="life-stat">alive <span id="life-alive">0</span></div>
+    </div>
+  </div>
+  <div class="resize-handle"></div>
+</div>
+
+<!-- Guestbook -->
+<div class="window" id="win-guestbook">
+  <div class="titlebar">
+    <div class="win-controls">
+      <button class="wbtn wbtn-close" data-win="win-guestbook"></button>
+      <button class="wbtn wbtn-min"   data-win="win-guestbook"></button>
+      <button class="wbtn wbtn-max"   data-win="win-guestbook"></button>
+    </div>
+    <div class="win-title">~/guestbook</div>
+    <div class="win-spacer"></div>
+  </div>
+  <div class="win-body" id="guestbook-body">
+    <span class="prompt">$ cat guestbook.log</span>
+
+    <div id="gb-entries"></div>
+
+    <div id="gb-form-wrap">
+      <h2>// leave a note</h2>
+      <div class="gb-field">
+        <label class="gb-label">name</label>
+        <input id="gb-name" type="text" maxlength="32" placeholder="anonymous" class="gb-input">
+      </div>
+      <div class="gb-field">
+        <label class="gb-label">pick a vibe</label>
+        <div id="gb-stickers">
+          <span class="sticker" data-val="🧬">🧬</span>
+          <span class="sticker" data-val="⚗️">⚗️</span>
+          <span class="sticker" data-val="🔬">🔬</span>
+          <span class="sticker" data-val="💻">💻</span>
+          <span class="sticker" data-val="🌊">🌊</span>
+          <span class="sticker" data-val="✨">✨</span>
+          <span class="sticker" data-val="🌱">🌱</span>
+          <span class="sticker" data-val="🎨">🎨</span>
+          <span class="sticker" data-val="🚀">🚀</span>
+          <span class="sticker" data-val="🦋">🦋</span>
+          <span class="sticker" data-val="🌸">🌸</span>
+          <span class="sticker" data-val="⭐">⭐</span>
+        </div>
+      </div>
+      <div class="gb-field">
+        <label class="gb-label">message</label>
+        <textarea id="gb-msg" maxlength="200" placeholder="say something nice..." class="gb-input gb-textarea"></textarea>
+        <div id="gb-charcount">0 / 200</div>
+      </div>
+      <div id="gb-error"></div>
+      <button id="gb-submit" onclick="submitGuestbook()">post it →</button>
+    </div>
+  </div>
+  <div class="resize-handle"></div>
+</div>
+
+<!-- Terminal -->
+<div class="window" id="win-terminal">
+  <div class="titlebar">
+    <div class="win-controls">
+      <button class="wbtn wbtn-close" data-win="win-terminal"></button>
+      <button class="wbtn wbtn-min"   data-win="win-terminal"></button>
+      <button class="wbtn wbtn-max"   data-win="win-terminal"></button>
+    </div>
+    <div class="win-title">terminal · maya@portfolio</div>
+    <div class="win-spacer"></div>
+  </div>
+  <div class="win-body" id="terminal-win-body">
+    <div id="terminal-header">maya@portfolio ~ · type <span style="color:var(--green)">help</span> to explore · try <span style="color:var(--green)">neofetch</span>, <span style="color:var(--green)">research</span>, <span style="color:var(--green)">fun</span></div>
+    <div id="terminal-lines"></div>
+    <div class="t-prompt-wrap">
+      <span class="t-ps1">maya@portfolio:~$</span>
+      <input id="terminal-input" type="text" autocomplete="off" autocorrect="off" spellcheck="false"
+             placeholder="type a command..." onkeydown="handleTerminal(event)">
+    </div>
+  </div>
+  <div class="resize-handle"></div>
+</div>
+
+<!-- Taskbar -->
+<div id="taskbar">
+  <div id="taskbar-start" title="Home">⊞</div>
+  <div id="taskbar-divider"></div>
+  <div id="taskbar-items"></div>
+  <div id="taskbar-right">
+    <button id="wallpaper-btn" title="Change wallpaper" onclick="rotateWallpaper()">🎨</button>
+    <div id="clock"></div>
+  </div>
+</div>
+
+<!-- Right-click context menu -->
+<div id="ctx-menu">
+  <div class="ctx-item" onclick="rotateWallpaper(); hideCtx()">🎨 &nbsp;Change Wallpaper</div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item" onclick="openWindow('win-about'); hideCtx()">🗂 &nbsp;About Me</div>
+  <div class="ctx-item" onclick="openWindow('win-projects'); hideCtx()">📁 &nbsp;Projects</div>
+  <div class="ctx-item" onclick="openWindow('win-resume'); hideCtx()">📄 &nbsp;Resume</div>
+  <div class="ctx-item" onclick="openWindow('win-matcha'); hideCtx()">🍵 &nbsp;Matcha</div>
+  <div class="ctx-item" onclick="openWindow('win-blog'); hideCtx()">✍️ &nbsp;Blog</div>
+  <div class="ctx-item" onclick="openWindow('win-reading'); hideCtx()">📚 &nbsp;Reading</div>
+  <div class="ctx-item" onclick="openWindow('win-contact'); hideCtx()">📡 &nbsp;Contact</div>
+  <div class="ctx-item" onclick="openWindow('win-guestbook'); hideCtx()">📝 &nbsp;Guestbook</div>
+  <div class="ctx-item" onclick="openWindow('win-terminal'); hideCtx()">⬛ &nbsp;Terminal</div>
+  <div class="ctx-item" onclick="openWindow('win-life'); hideCtx()">🧫 &nbsp;life.exe</div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════
+//  CANVAS BACKGROUND — animated particle field
+// ══════════════════════════════════════════════════════
+const canvas  = document.getElementById('bg-canvas');
+const ctx     = canvas.getContext('2d');
+let W, H, particles = [], currentPalette = 0;
+let mouseX = -9999, mouseY = -9999;
+document.addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clientY; });
+
+const palettes = [
+  { bg: '#030810', star: 'rgba(100,200,255,', grid: 'rgba(40,100,180,0.06)' },
+  { bg: '#030d05', star: 'rgba(100,255,160,', grid: 'rgba(40,160,80,0.06)'  },
+  { bg: '#0d0308', star: 'rgba(200,100,255,', grid: 'rgba(120,40,180,0.06)' },
+  { bg: '#080d00', star: 'rgba(200,255,80,',  grid: 'rgba(120,160,40,0.06)' },
+  { bg: '#03080d', star: 'rgba(80,200,255,',  grid: 'rgba(40,120,200,0.06)' },
+];
+
+function resize() {
+  W = canvas.width  = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+
+function initParticles() {
+  particles = [];
+  const count = Math.floor((W * H) / 10000);
+  for (let i = 0; i < count; i++) {
+    particles.push({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      r: Math.random() * 1.4 + 0.3,
+      vx: (Math.random() - 0.5) * 0.12,
+      vy: -(Math.random() * 0.15 + 0.02),
+      opacity: Math.random() * 0.7 + 0.1,
+      twinkle: Math.random() * Math.PI * 2,
+      twinkleSpeed: Math.random() * 0.02 + 0.005,
+    });
+  }
+}
+
+function drawFrame() {
+  const p = palettes[currentPalette];
+  ctx.fillStyle = p.bg;
+  ctx.fillRect(0, 0, W, H);
+
+  // Subtle grid
+  ctx.strokeStyle = p.grid;
+  ctx.lineWidth = 1;
+  const gs = 60;
+  for (let x = 0; x < W; x += gs) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+  for (let y = 0; y < H; y += gs) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+
+  // Constellation lines between particles
+  const LINK_DIST = 130, MOUSE_DIST = 170;
+  ctx.lineWidth = 1;
+  for (let i = 0; i < particles.length; i++) {
+    const a = particles[i];
+    // particle-particle
+    for (let j = i + 1; j < particles.length; j++) {
+      const b = particles[j];
+      const dx = a.x - b.x, dy = a.y - b.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if (dist < LINK_DIST) {
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.strokeStyle = p.star + ((1 - dist / LINK_DIST) * 0.55) + ')';
+        ctx.stroke();
+      }
+    }
+    // mouse-particle
+    const mdx = a.x - mouseX, mdy = a.y - mouseY;
+    const mdist = Math.sqrt(mdx*mdx + mdy*mdy);
+    if (mdist < MOUSE_DIST) {
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(mouseX, mouseY);
+      ctx.strokeStyle = p.star + ((1 - mdist / MOUSE_DIST) * 0.9) + ')';
+      ctx.stroke();
+    }
+  }
+
+  // Particles
+  particles.forEach(pt => {
+    pt.twinkle += pt.twinkleSpeed;
+    const alpha = pt.opacity * (0.6 + 0.4 * Math.sin(pt.twinkle));
+    ctx.beginPath();
+    ctx.arc(pt.x, pt.y, pt.r, 0, Math.PI * 2);
+    ctx.fillStyle = p.star + alpha + ')';
+    ctx.fill();
+    pt.x += pt.vx;
+    pt.y += pt.vy;
+    if (pt.y < -2) { pt.y = H + 2; pt.x = Math.random() * W; }
+    if (pt.x < -2) pt.x = W + 2;
+    if (pt.x > W + 2) pt.x = -2;
+  });
+
+  requestAnimationFrame(drawFrame);
+}
+
+window.addEventListener('resize', () => { resize(); initParticles(); });
+resize();
+initParticles();
+drawFrame();
+
+// ══════════════════════════════════════════════════════
+//  WALLPAPER ROTATION
+// ══════════════════════════════════════════════════════
+function rotateWallpaper() {
+  currentPalette = (currentPalette + 1) % palettes.length;
+}
+setInterval(rotateWallpaper, 15000);
+
+// ══════════════════════════════════════════════════════
+//  CLOCK
+// ══════════════════════════════════════════════════════
+function updateClock() {
+  const n = new Date();
+  const h = String(n.getHours()).padStart(2,'0');
+  const m = String(n.getMinutes()).padStart(2,'0');
+  const s = String(n.getSeconds()).padStart(2,'0');
+  const d = n.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
+  document.getElementById('clock').textContent = `${d}  ${h}:${m}:${s}`;
+}
+updateClock();
+setInterval(updateClock, 1000);
+
+// ══════════════════════════════════════════════════════
+//  DESKTOP ICONS
+// ══════════════════════════════════════════════════════
+const icons = [
+  { label: 'about_me',  emoji: '🗂️',  win: 'win-about'    },
+  { label: 'projects',  emoji: '📁',  win: 'win-projects' },
+  { label: 'resume',    emoji: '📄',  win: 'win-resume'   },
+  { label: 'matcha',    emoji: '🍵',  win: 'win-matcha'   },
+  { label: 'reading',   emoji: '📚',  win: 'win-reading'  },
+  { label: 'blog',      emoji: '✍️',  win: 'win-blog'     },
+  { label: 'contact',   emoji: '📡',  win: 'win-contact'  },
+  { label: 'guestbook', emoji: '📝',  win: 'win-guestbook'},
+  { label: 'life.exe',  emoji: '🧫',  win: 'win-life'     },
+  { label: 'terminal',  emoji: '⬛',  win: 'win-terminal' },
+];
+
+const desktop = document.getElementById('desktop');
+const dock    = document.getElementById('dock');
+
+icons.forEach((icon, i) => {
+  const el = document.createElement('div');
+  el.className = 'icon';
+  el.setAttribute('data-label', icon.label);
+  el.innerHTML = `<div class="icon-emoji">${icon.emoji}</div>`;
+
+  el.addEventListener('click', e => {
+    e.stopPropagation();
+    document.querySelectorAll('.icon').forEach(ic => ic.classList.remove('selected'));
+    el.classList.add('selected');
+    openWindow(icon.win);
+  });
+
+  dock.appendChild(el);
+});
+
+desktop.addEventListener('click', () => {
+  document.querySelectorAll('.icon').forEach(ic => ic.classList.remove('selected'));
+});
+
+// ══════════════════════════════════════════════════════
+//  WINDOW MANAGEMENT
+// ══════════════════════════════════════════════════════
+let zTop = 200;
+const minimized = {};
+
+const winDefaults = {
+  'win-about':     { w: 530, h: 490, ox: 160, oy: 60  },
+  'win-projects':  { w: 640, h: 490, ox: 140, oy: 50  },
+  'win-resume':    { w: 560, h: 530, ox: 200, oy: 55  },
+  'win-contact':   { w: 430, h: 430, ox: 230, oy: 80  },
+  'win-guestbook': { w: 480, h: 560, ox: 260, oy: 60  },
+  'win-matcha':    { w: 680, h: 540, ox: 120, oy: 50  },
+  'win-blog':      { w: 560, h: 460, ox: 220, oy: 80  },
+  'win-life':      { w: 620, h: 500, ox: 150, oy: 55  },
+  'win-reading':   { w: 500, h: 520, ox: 200, oy: 60  },
+  'win-terminal':  { w: 620, h: 370, ox: 180, oy: 110 },
+};
+
+function openWindow(id) {
+  const win = document.getElementById(id);
+  if (!win) return;
+
+  if (minimized[id]) {
+    win.style.display = 'flex';
+    delete minimized[id];
+    win.style.zIndex = ++zTop;
+    updateTaskbar();
+    return;
+  }
+
+  if (win.classList.contains('active')) {
+    win.style.zIndex = ++zTop;
+    return;
+  }
+
+  const def = winDefaults[id] || { w: 500, h: 400, ox: 180, oy: 80 };
+  const jitter = Math.random() * 24 - 12;
+  win.style.width  = def.w + 'px';
+  win.style.height = def.h + 'px';
+  win.style.left   = (def.ox + jitter) + 'px';
+  win.style.top    = (def.oy + jitter) + 'px';
+  win.style.zIndex = ++zTop;
+  win.classList.add('active');
+  win.style.display = 'flex';
+
+  if (id === 'win-terminal')   setTimeout(() => document.getElementById('terminal-input')?.focus(), 80);
+  if (id === 'win-guestbook')  setTimeout(gbRender, 0);
+  if (id === 'win-blog')       setTimeout(startBlogTyping, 200);
+  if (id === 'win-matcha')     setTimeout(initMatchaMap, 50);
+  if (id === 'win-life')       setTimeout(() => LIFE.init(), 50);
+
+  updateTaskbar();
+}
+
+function closeWindow(id) {
+  const win = document.getElementById(id);
+  win.classList.remove('active');
+  win.style.display = 'none';
+  delete minimized[id];
+  updateTaskbar();
+}
+
+function minimizeWindow(id) {
+  const win = document.getElementById(id);
+  win.style.display = 'none';
+  minimized[id] = true;
+  updateTaskbar();
+}
+
+function maximizeWindow(id) {
+  const win = document.getElementById(id);
+  if (win._maximized) {
+    win.style.width  = win._savedW;
+    win.style.height = win._savedH;
+    win.style.left   = win._savedL;
+    win.style.top    = win._savedT;
+    win._maximized   = false;
+  } else {
+    win._savedW = win.style.width;
+    win._savedH = win.style.height;
+    win._savedL = win.style.left;
+    win._savedT = win.style.top;
+    win.style.width  = '100vw';
+    win.style.height = 'calc(100vh - 46px)';
+    win.style.left   = '0';
+    win.style.top    = '0';
+    win._maximized   = true;
+  }
+}
+
+function updateTaskbar() {
+  const bar = document.getElementById('taskbar-items');
+  bar.innerHTML = '';
+  document.querySelectorAll('.window.active').forEach(win => {
+    const id    = win.id;
+    const title = win.querySelector('.win-title').textContent.trim();
+    const isMin = !!minimized[id];
+
+    const item = document.createElement('div');
+    item.className = 'tb-item' + (isMin ? ' minimized' : ' focused');
+    item.textContent = title;
+    item.title = title;
+    item.onclick = () => {
+      if (minimized[id]) {
+        win.style.display = 'flex';
+        delete minimized[id];
+        win.style.zIndex = ++zTop;
+        updateTaskbar();
+      } else {
+        win.style.zIndex = ++zTop;
+      }
+    };
+    bar.appendChild(item);
+  });
+}
+
+// Window button wiring
+document.querySelectorAll('.wbtn-close').forEach(btn => {
+  btn.addEventListener('click', e => { e.stopPropagation(); closeWindow(btn.dataset.win); });
+});
+document.querySelectorAll('.wbtn-min').forEach(btn => {
+  btn.addEventListener('click', e => { e.stopPropagation(); minimizeWindow(btn.dataset.win); });
+});
+document.querySelectorAll('.wbtn-max').forEach(btn => {
+  btn.addEventListener('click', e => { e.stopPropagation(); maximizeWindow(btn.closest('.window').id); });
+});
+
+// ══════════════════════════════════════════════════════
+//  DRAG
+// ══════════════════════════════════════════════════════
+document.querySelectorAll('.window').forEach(win => {
+  const tb = win.querySelector('.titlebar');
+  let dragging = false, ox = 0, oy = 0;
+
+  tb.addEventListener('mousedown', e => {
+    if (e.target.tagName === 'BUTTON') return;
+    dragging = true;
+    ox = e.clientX - win.offsetLeft;
+    oy = e.clientY - win.offsetTop;
+    win.style.zIndex = ++zTop;
+    e.preventDefault();
+  });
+
+  win.addEventListener('mousedown', () => { win.style.zIndex = ++zTop; });
+
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    win.style.left = Math.max(0, Math.min(window.innerWidth  - 60, e.clientX - ox)) + 'px';
+    win.style.top  = Math.max(0, Math.min(window.innerHeight - 46, e.clientY - oy)) + 'px';
+  });
+
+  document.addEventListener('mouseup', () => { dragging = false; });
+});
+
+// ══════════════════════════════════════════════════════
+//  RESIZE
+// ══════════════════════════════════════════════════════
+document.querySelectorAll('.resize-handle').forEach(handle => {
+  const win = handle.closest('.window');
+  let resizing = false, startX, startY, startW, startH;
+
+  handle.addEventListener('mousedown', e => {
+    resizing = true;
+    startX = e.clientX; startY = e.clientY;
+    startW = win.offsetWidth; startH = win.offsetHeight;
+    e.preventDefault(); e.stopPropagation();
+  });
+
+  document.addEventListener('mousemove', e => {
+    if (!resizing) return;
+    win.style.width  = Math.max(320, startW + e.clientX - startX) + 'px';
+    win.style.height = Math.max(220, startH + e.clientY - startY) + 'px';
+  });
+
+  document.addEventListener('mouseup', () => { resizing = false; });
+});
+
+// ══════════════════════════════════════════════════════
+//  TERMINAL
+// ══════════════════════════════════════════════════════
+const g = (s) => `<span style="color:var(--green)">${s}</span>`;
+const d = (s) => `<span style="color:var(--green-dim)">${s}</span>`;
+const t = (s) => `<span style="color:var(--text)">${s}</span>`;
+
+const termCmds = {
+
+  help: () =>
+`${g('── windows ──')}
+  ${d('about')}       who I am
+  ${d('projects')}    research & side projects
+  ${d('resume')}      academic CV
+  ${d('contact')}     get in touch
+
+${g('── about maya ──')}
+  ${d('whoami')}      quick intro
+  ${d('research')}    what my PhD is actually about
+  ${d('stack')}       tools I live in
+  ${d('city')}        life in Paris
+  ${d('matcha')}      important
+  ${d('currently')}   what I'm working on right now
+  ${d('fun')}         miscellaneous facts
+  ${d('phd')}         honest thoughts on PhD life
+  ${d('languages')}   human + programming
+  ${d('reading')}     what's on my desk
+  ${d('collab')}      what I'm looking for
+
+${g('── misc ──')}
+  ${d('neofetch')}    system info (obviously)
+  ${d('date')}        current time
+  ${d('wallpaper')}   cycle background
+  ${d('banner')}      ascii art
+  ${d('secret')}      ...
+  ${d('clear')}       clear terminal`,
+
+  // ── windows
+  about:    () => { openWindow('win-about');    return d('opening ~/about_me ...'); },
+  projects: () => { openWindow('win-projects'); return d('opening ~/projects ...'); },
+  resume:   () => { openWindow('win-resume');   return d('opening ~/resume ...');   },
+  contact:  () => { openWindow('win-contact');  return d('opening ~/contact ...');  },
+
+  // ── about maya
+  whoami: () =>
+`${g('maya')} · phd student, computer science
+${d('sorbonne university, paris')}
+using protein language models to understand how mutations reshape
+protein function and interaction behavior`,
+
+  research: () =>
+`${g('// the short version')}
+I'm interested in how protein language models learn to represent
+biological information. specifically, what do these learned embeddings
+capture about how mutations reshape protein function?
+
+${g('// the approach')}
+using protein language models (${t('ESM-2, ProtBERT')}), studying how
+sequence representations encode functional and biophysical properties.
+this means understanding what information the model actually learns
+about protein behavior.
+
+${g('// current focus')}
+representation learning, mutational effects, and what sequence-based
+models can tell us about protein interactions and stability.`,
+
+  stack: () =>
+`${g('// daily drivers')}
+  ${d('Python')}        always
+  ${d('PyTorch')}       models & training
+  ${d('ESM-2')}         protein language model backbone
+  ${d('NumPy/SciPy')}   signal processing, statistics
+  ${d('Jupyter')}       experiments & exploration
+  ${d('LaTeX')}         writing that looks serious
+  ${d('Git')}           when I remember to commit
+  ${d('NVIDIA RTX 5090')}  where the real compute happens
+
+${g('// currently learning')}
+  agentic coding · organizing my knowledge library with Obsidian`,
+
+  city: () =>
+`${g('paris, france')} 📍
+based here for my PhD.
+
+${d('what I love about paris:')}
+  → the light in autumn, genuinely unreal
+  → bread that costs €1.20 and ruins all other bread forever
+  → spending time by the Seine`,
+
+  matcha: () =>
+`${g('// matcha.conf')}
+  current fav:  ${t('guava matcha')} 🍵
+  backup:       any ceremonial grade, oat milk
+  timing:       before anything requiring thought
+  opinion:      iced > hot, even in -20`,
+
+  coffee: () => `${d('try')} ${g('matcha')} ${d('instead.')}`,
+
+  currently: () =>
+`${g('// what I\'m working on right now')}
+
+understanding how protein language models represent and encode amino acid information.
+
+${d('open to: collaborations, coffee chats, interesting datasets')}`,
+
+  fun: () =>
+`${g('// miscellaneous maya facts')}
+
+  → traveled to 30+ countries
+  → spent a week at a Greek language learning school
+  → 3 time geography bee champion (Kara Sea cost me nationals)`,
+
+  phd: () =>
+`${g('// honest thoughts on phd life')}
+
+the highs:  you get to work on something genuinely new.
+            nobody has ever looked at this exact question before.
+
+the lows:   it is extremely normal to feel like you have no
+            idea what you're doing. this is not a bug.
+
+the reality: working in an interdisciplinary field means learning two languages
+            at once. ML and biology. you're not just translating between them,
+            you're creating a new language where they merge.
+
+practical tip: keep a concepts & vocabulary sheet. separate sections for ML
+              and Bio. you'll need it. it's cool to see how much you've learned.
+
+${d('currently: somewhere between "this is beautiful" and "why"')}`,
+
+  languages: () =>
+`${g('// human languages')}
+  English     ██████████  native
+  Polish      █████████░  heritage language
+  French      ████████░░  Paris-tested
+  Portuguese  █████░░░░░  in progress
+  Greek       █████░░░░░  in progress
+  Spanish     ████░░░░░░  in progress
+  Bulgarian   █░░░░░░░░░  survived one conversation
+
+${g('// the taxi test')}
+can you have a 30-40 minute conversation from the airport to the city?
+if yes, you've passed. that's my metric.
+
+${g('// programming languages')}
+  Python    ██████████  fluent, opinionated
+  Bash      ████░░░░░░  enough to be dangerous
+  LaTeX     ██████░░░░  it compiles eventually
+  SQL       ███░░░░░░░  when I have to
+  JS        ██░░░░░░░░  I made this website though`,
+
+  reading: () =>
+`${g('// currently on my desk')}
+  ${t('Antifragile')} · Nassim Nicholas Taleb
+  ${t('Mathematica')} · David Bessis
+
+${g('// papers I keep recommending')}
+  ${t('Remarkable problem-solving ability of unicellular amoeboid organism')} · Zhu, Kim, Hara, Aono (2018)
+
+${d('I have a bad habit of having 40 browser tabs open with papers')}
+${d('I will read "later".')}`,
+
+  collab: () =>
+`${g('// what I\'m looking for')}
+
+  → collaborators interested in PLM representations and how they relate to mutational effects
+  → datasets: disordered proteins, LLPS, mutational effects
+  → open to jamming on various research directions
+
+${g('→')} reach out: mayaczeneszew@gmail.com`,
+
+  // ── misc
+  neofetch: () => {
+    const now = new Date();
+    const uptime = Math.floor((now - new Date(now.toDateString())) / 60000);
+    return `${g('           .\'\'.')}          ${g('maya@portfolio')}
+${g('         .\'      \'.')}        ${d('─────────────────────────────')}
+${g('       .\'  .\'\'\'\'  \'.')}       ${t('OS:')}      Portfolio OS v2.0
+${g('      . . \'      \'. .')}      ${t('Host:')}    Sorbonne University, Paris
+${g('      \'  \'  .\'\'\'  \'  \'')}     ${t('Kernel:')}  PhD in Computer Science
+${g('       \'  \'     \'  \'')}       ${t('Uptime:')}  ${uptime} minutes today
+${g('        \'.      .\'')}         ${t('Shell:')}   python 3.11, zsh
+${g('          \'....\'')}           ${t('DE:')}      this website
+                            ${t('CPU:')}    ESM-2 650M + human brain
+                            ${t('Memory:')} too many tabs open
+                            ${t('Disk:')}   ~1TB of protein sequences`;
+  },
+
+  date:      () => new Date().toString(),
+  wallpaper: () => { rotateWallpaper(); return d('wallpaper changed.'); },
+  clear:     () => { document.getElementById('terminal-lines').innerHTML = ''; return null; },
+
+  secret: () =>
+`${d('...you found it.')}
+
+${g('fun fact:')} I love language learning.
+currently studying: ${t('Spanish, Greek, Portuguese, Bulgarian')}
+also dabbling in:   ${t('Italian')}
+so far:             ${t('making embarrassing mistakes in five languages simultaneously')}
+
+${d('the multilingualism and the protein folding are unrelated.')}
+${d('probably.')}`,
+
+  banner: () =>
+`${g('  ██████╗  ██████╗ ██████╗ ████████╗')}
+${g('  ██╔══██╗██╔═══██╗██╔══██╗╚══██╔══╝')}
+${g('  ██████╔╝██║   ██║██████╔╝   ██║   ')}
+${g('  ██╔═══╝ ██║   ██║██╔══██╗   ██║   ')}
+${g('  ██║     ╚██████╔╝██║  ██║   ██║   ')}
+${g('  ╚═╝      ╚═════╝ ╚═╝  ╚═╝   ╚═╝  ')}
+${d('  phd student · bioml researcher · builder · paris')}
+${d('  type help for commands')}`,
+};
+
+const termHistory = [];
+let histIdx = -1;
+
+function addTermLine(html, cls) {
+  const lines = document.getElementById('terminal-lines');
+  const div = document.createElement('div');
+  div.className = cls;
+  div.innerHTML = html;
+  lines.appendChild(div);
+  const body = document.getElementById('terminal-win-body');
+  body.scrollTop = body.scrollHeight;
+}
+
+function levenshteinDistance(a, b) {
+  const m = a.length, n = b.length;
+  const dp = Array(m + 1).fill(null).map(() => Array(n + 1).fill(0));
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      if (a[i-1] === b[j-1]) {
+        dp[i][j] = dp[i-1][j-1];
+      } else {
+        dp[i][j] = 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);
+      }
+    }
+  }
+  return dp[m][n];
+}
+
+function handleTerminal(e) {
+  const input = document.getElementById('terminal-input');
+
+  if (e.key === 'ArrowUp') {
+    if (histIdx < termHistory.length - 1) { histIdx++; input.value = termHistory[histIdx]; }
+    e.preventDefault(); return;
+  }
+  if (e.key === 'ArrowDown') {
+    histIdx > 0 ? (histIdx--, input.value = termHistory[histIdx]) : (histIdx = -1, input.value = '');
+    e.preventDefault(); return;
+  }
+  if (e.key !== 'Enter') return;
+
+  const raw = input.value.trim();
+  if (!raw) return;
+
+  termHistory.unshift(raw);
+  histIdx = -1;
+
+  const cmd = raw.toLowerCase();
+  addTermLine(`<span class="t-ps1">maya@portfolio:~$</span> <span style="color:var(--text)">${raw}</span>`, 't-cmd');
+
+  const fn = termCmds[cmd];
+  if (fn) {
+    const result = fn();
+    if (result != null) addTermLine(result, 't-out');
+  } else {
+    const commands = Object.keys(termCmds);
+    const distances = commands.map(c => ({ cmd: c, dist: levenshteinDistance(cmd, c) }));
+    const closest = distances.sort((a, b) => a.dist - b.dist)[0];
+
+    let errMsg = `command not found: ${raw}. type <span style="color:var(--green)">help</span> for commands.`;
+    if (closest.dist <= 2 && closest.dist > 0) {
+      errMsg += `<br>did you mean: <span style="color:var(--green)">${closest.cmd}</span>?`;
+    }
+    addTermLine(errMsg, 't-err');
+  }
+
+  input.value = '';
+}
+
+// ══════════════════════════════════════════════════════
+//  RIGHT-CLICK CONTEXT MENU
+// ══════════════════════════════════════════════════════
+const ctxMenu = document.getElementById('ctx-menu');
+
+document.addEventListener('contextmenu', e => {
+  e.preventDefault();
+  if (e.target.closest('.window') || e.target.closest('#taskbar')) return;
+  ctxMenu.style.display = 'block';
+  const x = Math.min(e.clientX, window.innerWidth  - ctxMenu.offsetWidth  - 8);
+  const y = Math.min(e.clientY, window.innerHeight - ctxMenu.offsetHeight - 8);
+  ctxMenu.style.left = x + 'px';
+  ctxMenu.style.top  = y + 'px';
+});
+
+document.addEventListener('click',    () => hideCtx());
+document.addEventListener('keydown',  e => {
+  if (e.key !== 'Escape') return;
+  hideCtx();
+  // close the topmost visible window
+  const open = [...document.querySelectorAll('.window.active')]
+    .filter(w => w.style.display !== 'none')
+    .sort((a, b) => (parseInt(b.style.zIndex) || 0) - (parseInt(a.style.zIndex) || 0));
+  if (open[0]) closeWindow(open[0].id);
+  document.querySelectorAll('.icon').forEach(ic => ic.classList.remove('selected'));
+});
+
+function hideCtx() { ctxMenu.style.display = 'none'; }
+
+// ══════════════════════════════════════════════════════
+//  CONWAY'S GAME OF LIFE
+// ══════════════════════════════════════════════════════
+const LIFE = {
+  canvas: null, ctx: null,
+  grid: null, next: null,
+  cols: 0, rows: 0,
+  cellSize: 9,
+  running: false, timer: null,
+  generation: 0,
+  speeds: [600, 300, 150, 60, 16], // ms per tick, index 0=slow 4=fast
+  speedIdx: 2,
+  drawing: false, erasing: false, initialized: false,
+
+  init() {
+    if (this.initialized) { this.resize(); return; }
+    this.initialized = true;
+    this.canvas = document.getElementById('life-canvas');
+    this.ctx    = this.canvas.getContext('2d');
+    this.resize();
+    this.randomize(false);
+    this.draw();
+    this.setupEvents();
+    this.play();
+  },
+
+  resize() {
+    const wrap = document.getElementById('life-canvas-wrap');
+    if (!wrap) return;
+    const W = wrap.clientWidth, H = wrap.clientHeight;
+    this.canvas.width  = W;
+    this.canvas.height = H;
+    this.cols = Math.floor(W / this.cellSize);
+    this.rows = Math.floor(H / this.cellSize);
+    const size = this.cols * this.rows;
+    if (!this.grid || this.grid.length !== size) {
+      this.grid = new Uint8Array(size);
+      this.next  = new Uint8Array(size);
+    }
+  },
+
+  setupEvents() {
+    const c = this.canvas;
+    const getCell = e => {
+      const r = c.getBoundingClientRect();
+      return {
+        col: Math.floor((e.clientX - r.left)  / this.cellSize),
+        row: Math.floor((e.clientY - r.top)   / this.cellSize),
+      };
+    };
+    const paint = (e) => {
+      const {row, col} = getCell(e);
+      if (row < 0 || row >= this.rows || col < 0 || col >= this.cols) return;
+      this.grid[row * this.cols + col] = this.erasing ? 0 : 1;
+      this.draw();
+    };
+    c.addEventListener('mousedown', e => {
+      e.preventDefault();
+      this.erasing = e.button === 2;
+      this.drawing = !this.erasing;
+      paint(e);
+    });
+    c.addEventListener('mousemove', e => { if (this.drawing || this.erasing) paint(e); });
+    document.addEventListener('mouseup', () => { this.drawing = this.erasing = false; });
+    c.addEventListener('contextmenu', e => e.preventDefault());
+  },
+
+  randomize(redraw = true) {
+    for (let i = 0; i < this.grid.length; i++)
+      this.grid[i] = Math.random() < 0.28 ? 1 : 0;
+    this.generation = 0;
+    this.updateStats();
+    if (redraw) this.draw();
+  },
+
+  clear() {
+    this.grid.fill(0);
+    this.generation = 0;
+    this.updateStats();
+    this.draw();
+  },
+
+  stepOnce() {
+    for (let r = 0; r < this.rows; r++) {
+      for (let c = 0; c < this.cols; c++) {
+        let n = 0;
+        for (let dr = -1; dr <= 1; dr++) {
+          for (let dc = -1; dc <= 1; dc++) {
+            if (!dr && !dc) continue;
+            n += this.grid[((r + dr + this.rows) % this.rows) * this.cols +
+                           ((c + dc + this.cols) % this.cols)];
+          }
+        }
+        const alive = this.grid[r * this.cols + c];
+        this.next[r * this.cols + c] = alive ? (n === 2 || n === 3 ? 1 : 0) : (n === 3 ? 1 : 0);
+      }
+    }
+    [this.grid, this.next] = [this.next, this.grid];
+    this.generation++;
+    this.updateStats();
+    this.draw();
+  },
+
+  draw() {
+    const { ctx, canvas, cols, rows, cellSize } = this;
+    const W = canvas.width, H = canvas.height;
+
+    ctx.fillStyle = 'rgb(6, 10, 14)';
+    ctx.fillRect(0, 0, W, H);
+
+    // Grid lines
+    ctx.strokeStyle = 'rgba(100,255,180,0.05)';
+    ctx.lineWidth = 0.5;
+    for (let c = 0; c <= cols; c++) { ctx.beginPath(); ctx.moveTo(c*cellSize,0); ctx.lineTo(c*cellSize,H); ctx.stroke(); }
+    for (let r = 0; r <= rows; r++) { ctx.beginPath(); ctx.moveTo(0,r*cellSize); ctx.lineTo(W,r*cellSize); ctx.stroke(); }
+
+    // Alive cells
+    ctx.fillStyle = 'rgba(100,255,180,0.88)';
+    ctx.shadowColor = 'rgba(100,255,180,0.4)';
+    ctx.shadowBlur  = 3;
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        if (this.grid[r * cols + c]) {
+          ctx.fillRect(c*cellSize+1, r*cellSize+1, cellSize-2, cellSize-2);
+        }
+      }
+    }
+    ctx.shadowBlur = 0;
+  },
+
+  updateStats() {
+    let alive = 0;
+    for (let i = 0; i < this.grid.length; i++) alive += this.grid[i];
+    const g = document.getElementById('life-gen');
+    const a = document.getElementById('life-alive');
+    if (g) g.textContent = this.generation.toLocaleString();
+    if (a) a.textContent = alive.toLocaleString();
+  },
+
+  play() {
+    if (this.running) return;
+    this.running = true;
+    const tick = () => {
+      this.stepOnce();
+      if (this.running) this.timer = setTimeout(tick, this.speeds[this.speedIdx]);
+    };
+    this.timer = setTimeout(tick, this.speeds[this.speedIdx]);
+    const btn = document.getElementById('life-playbtn');
+    if (btn) { btn.textContent = '⏸ pause'; btn.classList.add('active'); }
+  },
+
+  pause() {
+    this.running = false;
+    clearTimeout(this.timer);
+    const btn = document.getElementById('life-playbtn');
+    if (btn) { btn.textContent = '▶ play'; btn.classList.remove('active'); }
+  },
+
+  toggle() { this.running ? this.pause() : this.play(); },
+
+  setSpeed(val) {
+    this.speedIdx = Math.max(0, Math.min(4, parseInt(val) - 1));
+    if (this.running) { this.pause(); this.play(); }
+  },
+};
+
+// ══════════════════════════════════════════════════════
+//  BLOG TYPING EFFECT
+// ══════════════════════════════════════════════════════
+const blogPhrases = [
+  'writing up experiment 1.5...',
+  'collecting thoughts on protein disorder.',
+  'something about PLMs is taking shape.',
+  'first year notes. almost coherent.',
+  'it will be peer-reviewed eventually.',
+  'drafting: what my model learned and what it means.',
+  'thinking about phase separation at 2am.',
+];
+let blogTypingTimer = null;
+function startBlogTyping() {
+  const el = document.getElementById('blog-typing');
+  if (!el) return;
+  clearTimeout(blogTypingTimer);
+  const phrase = blogPhrases[Math.floor(Math.random() * blogPhrases.length)];
+  let i = 0;
+  el.textContent = '';
+  function type() {
+    if (i < phrase.length) { el.textContent += phrase[i++]; blogTypingTimer = setTimeout(type, 55); }
+  }
+  type();
+}
+
+// ══════════════════════════════════════════════════════
+//  MATCHA WORLD MAP  (Leaflet + CartoDB Dark Matter)
+// ══════════════════════════════════════════════════════
+
+// Update city3/city4 lon/lat + label when you add real cities
+const MATCHA_CITIES = [
+  { id: 'athens', label: 'SF 🇺🇸',          lat: 37.77, lon: -122.42 },
+  { id: 'paris',  label: 'Paris 🇫🇷',        lat: 48.85, lon: 2.35   },
+  { id: 'city3',  label: 'NYC 🇺🇸',          lat: 40.71, lon: -74.01 },
+  { id: 'city4',  label: 'Minneapolis 🇺🇸',  lat: 44.98, lon: -93.27 },
+  { id: 'warsaw', label: 'Warsaw 🇵🇱',       lat: 52.23, lon: 21.01  },
+];
+
+let matchaLeaflet  = null;
+let matchaMarkers  = {};
+let activeMatchaCity = 'athens';
+
+function makePin(cityId) {
+  const isActive = cityId === activeMatchaCity;
+  return L.divIcon({
+    className: '',
+    html: `<div class="map-pin ${isActive ? 'active' : ''}"></div>`,
+    iconSize:   [isActive ? 14 : 12, isActive ? 14 : 12],
+    iconAnchor: [isActive ? 7  : 6,  isActive ? 7  : 6 ],
+  });
+}
+
+function switchMatchaCity(id) {
+  activeMatchaCity = id;
+  // Update sidebar tabs
+  document.querySelectorAll('.travel-city').forEach(t =>
+    t.classList.toggle('active', t.dataset.city === id));
+  // Update city panels
+  document.querySelectorAll('.city-panel').forEach(p =>
+    p.classList.toggle('active', p.id === 'city-' + id));
+  // Refresh marker icons
+  MATCHA_CITIES.forEach(c => {
+    if (matchaMarkers[c.id]) matchaMarkers[c.id].setIcon(makePin(c.id));
+  });
+  // Pan map to active city
+  const city = MATCHA_CITIES.find(c => c.id === id);
+  if (city && matchaLeaflet) matchaLeaflet.panTo([city.lat, city.lon], { animate: true, duration: 0.5 });
+}
+
+function initMatchaMap() {
+  if (matchaLeaflet) {
+    matchaLeaflet.invalidateSize();
+    return;
+  }
+
+  matchaLeaflet = L.map('matcha-map', {
+    center: [30, 15],
+    zoom: 2,
+    minZoom: 2,
+    maxZoom: 10,
+    zoomControl: true,
+    scrollWheelZoom: true,
+    attributionControl: false,
+  });
+
+  // CartoDB Dark Matter — free, no API key, looks great
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png', {
+    subdomains: 'abcd',
+    maxZoom: 19,
+  }).addTo(matchaLeaflet);
+
+  // Place markers
+  MATCHA_CITIES.forEach(city => {
+    const marker = L.marker([city.lat, city.lon], { icon: makePin(city.id) })
+      .addTo(matchaLeaflet)
+      .bindTooltip(city.label, {
+        permanent:  false,
+        direction:  'top',
+        className:  'leaflet-tooltip',
+        offset:     [0, -6],
+      })
+      .on('click', () => switchMatchaCity(city.id));
+    matchaMarkers[city.id] = marker;
+  });
+
+  setTimeout(() => matchaLeaflet.invalidateSize(), 100);
+}
+
+// Sidebar tabs
+document.querySelectorAll('.travel-city').forEach(tab => {
+  tab.addEventListener('click', () => switchMatchaCity(tab.dataset.city));
+});
+
+// ══════════════════════════════════════════════════════
+//  GUESTBOOK
+// ══════════════════════════════════════════════════════
+// NOTE: entries are stored in localStorage (per-device).
+// To make entries visible across all visitors, swap the
+// load/save calls below with a small API (Supabase free
+// tier works great: one table, one insert, one select).
+
+const BAD_WORDS = ['fuck','shit','ass','bitch','cunt','dick','pussy','bastard','piss','whore','nigger','faggot','retard','cock','twat'];
+
+function gbClean(str) {
+  let s = str.trim();
+  BAD_WORDS.forEach(w => {
+    const re = new RegExp(w, 'gi');
+    s = s.replace(re, '*'.repeat(w.length));
+  });
+  return s;
+}
+
+function gbLoad() {
+  try { return JSON.parse(localStorage.getItem('gb_entries') || '[]'); }
+  catch { return []; }
+}
+
+function gbSave(entries) {
+  localStorage.setItem('gb_entries', JSON.stringify(entries));
+}
+
+function gbRender() {
+  const entries = gbLoad();
+  const el = document.getElementById('gb-entries');
+  if (!el) return;
+  if (entries.length === 0) {
+    el.innerHTML = '<div class="gb-empty">no entries yet — be the first to leave a note ✨</div>';
+    return;
+  }
+  el.innerHTML = entries.slice().reverse().map(e => `
+    <div class="gb-entry">
+      <div class="gb-entry-sticker">${e.sticker}</div>
+      <div class="gb-entry-body">
+        <div class="gb-entry-name">${e.name}</div>
+        <div class="gb-entry-msg">${e.msg}</div>
+        <div class="gb-entry-date">${e.date}</div>
+      </div>
+    </div>`).join('');
+}
+
+let gbPicked = '✨';
+document.querySelectorAll('.sticker').forEach(s => {
+  s.addEventListener('click', () => {
+    document.querySelectorAll('.sticker').forEach(x => x.classList.remove('picked'));
+    s.classList.add('picked');
+    gbPicked = s.dataset.val;
+  });
+});
+
+// char counter
+const gbMsgEl = document.getElementById('gb-msg');
+if (gbMsgEl) {
+  gbMsgEl.addEventListener('input', () => {
+    document.getElementById('gb-charcount').textContent = `${gbMsgEl.value.length} / 200`;
+  });
+}
+
+function submitGuestbook() {
+  const nameRaw = document.getElementById('gb-name').value.trim() || 'anonymous';
+  const msgRaw  = document.getElementById('gb-msg').value.trim();
+  const errEl   = document.getElementById('gb-error');
+
+  errEl.textContent = '';
+  if (!msgRaw) { errEl.textContent = 'message cannot be empty.'; return; }
+  if (msgRaw.length < 3) { errEl.textContent = 'a bit short, no?'; return; }
+
+  const name = gbClean(nameRaw).slice(0, 32);
+  const msg  = gbClean(msgRaw).slice(0, 200);
+
+  const entries = gbLoad();
+  entries.push({
+    name,
+    msg,
+    sticker: gbPicked,
+    date: new Date().toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' }),
+  });
+  gbSave(entries);
+
+  document.getElementById('gb-name').value = '';
+  document.getElementById('gb-msg').value  = '';
+  document.getElementById('gb-charcount').textContent = '0 / 200';
+  document.querySelectorAll('.sticker').forEach(x => x.classList.remove('picked'));
+  gbPicked = '✨';
+
+  gbRender();
+
+  const btn = document.getElementById('gb-submit');
+  btn.textContent = 'posted! ✓';
+  setTimeout(() => { btn.textContent = 'post it →'; }, 2000);
+}
+
+// ══════════════════════════════════════════════════════
+//  BOOT SEQUENCE
+// ══════════════════════════════════════════════════════
+const bootMessages = [
+  { text: 'UEFI BIOS v2.6.1  —  initializing hardware...', cls: '' },
+  { text: '[  OK  ] memory check: 32768 MB OK',            cls: 'ok' },
+  { text: '[  OK  ] mounted /dev/ssd0 → /home/maya',       cls: 'ok' },
+  { text: '[  OK  ] loaded biophysics.ko',                 cls: 'ok' },
+  { text: '[  OK  ] loaded portfolio.service',             cls: 'ok' },
+  { text: '[  OK  ] started window manager',               cls: 'ok' },
+  { text: '',                                              cls: ''   },
+  { text: 'WELCOME, MAYA.',                                cls: 'hi' },
+  { text: '',                                              cls: ''   },
+];
+
+const bootLinesEl = document.getElementById('boot-lines');
+const bootBar     = document.getElementById('boot-bar');
+let bootIdx = 0;
+
+function showNextBoot() {
+  if (bootIdx >= bootMessages.length) {
+    bootBar.style.width = '100%';
+    setTimeout(() => {
+      const boot = document.getElementById('boot');
+      boot.style.opacity = '0';
+      setTimeout(() => { boot.style.display = 'none'; }, 400);
+    }, 200);
+    return;
+  }
+  const { text, cls } = bootMessages[bootIdx];
+  const div = document.createElement('div');
+  div.className = 'boot-line' + (cls ? ' ' + cls : '');
+  div.textContent = text || '\u00a0';
+  bootLinesEl.appendChild(div);
+  setTimeout(() => div.classList.add('vis'), 30);
+
+  bootBar.style.width = ((bootIdx + 1) / bootMessages.length * 100) + '%';
+  bootIdx++;
+
+  const delay = cls === 'hi' ? 180 : (cls === 'ok' ? 70 : 50);
+  setTimeout(showNextBoot, delay);
+}
+
+setTimeout(showNextBoot, 120);
+</script>
+</body>
+</html>
