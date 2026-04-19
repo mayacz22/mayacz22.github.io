@@ -187,7 +187,7 @@
       z-index: 100;
       display: none;
       flex-direction: column;
-      overflow: hidden;
+      overflow: auto;
       animation: windowOpen 0.08s ease;
       touch-action: none;
     }
@@ -1688,9 +1688,15 @@ function openWindow(id) {
   const viewportH = window.innerHeight;
   const isMobile = viewportW < 768;
 
-  // Responsive sizing
-  let w = isMobile ? Math.min(def.w, viewportW - 20) : def.w;
-  let h = isMobile ? Math.min(def.h, viewportH - 80) : def.h;
+  // Responsive sizing - mobile windows much smaller for scrolling
+  let w, h;
+  if (isMobile) {
+    w = Math.min(320, viewportW - 16);
+    h = Math.min(320, viewportH - 100);
+  } else {
+    w = def.w;
+    h = def.h;
+  }
   w = Math.max(280, w); // min width
   h = Math.max(180, h); // min height
 
