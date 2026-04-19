@@ -208,7 +208,9 @@
       flex-shrink: 0;
       gap: 10px;
       touch-action: none;
-      min-height: 40px;
+      height: 40px;
+      position: relative;
+      z-index: 10;
     }
     .win-controls { display: flex; gap: 7px; }
     .wbtn {
@@ -239,14 +241,18 @@
       overflow-y: scroll;
       overflow-x: hidden;
       -webkit-overflow-scrolling: touch;
-      flex: 1;
-      min-height: 0;
       color: var(--text);
       font-size: 13px;
       line-height: 1.75;
       -webkit-user-select: text;
       user-select: text;
       pointer-events: auto;
+      position: absolute;
+      top: 40px;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      border-radius: 0 0 10px 10px;
     }
     .win-body::-webkit-scrollbar { width: 5px; }
     .win-body::-webkit-scrollbar-track { background: transparent; }
