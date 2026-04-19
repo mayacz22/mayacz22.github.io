@@ -189,6 +189,7 @@
       flex-direction: column;
       overflow: hidden;
       animation: windowOpen 0.08s ease;
+      touch-action: none;
     }
     @keyframes windowOpen {
       from { opacity: 0; transform: scale(0.97) translateY(4px); }
@@ -200,12 +201,14 @@
     .titlebar {
       display: flex;
       align-items: center;
-      padding: 9px 12px;
+      padding: 10px 12px;
       background: var(--bg-titlebar);
       border-bottom: 1px solid var(--green-border);
       cursor: move;
       flex-shrink: 0;
       gap: 10px;
+      touch-action: none;
+      min-height: 40px;
     }
     .win-controls { display: flex; gap: 7px; }
     .wbtn {
@@ -1778,24 +1781,46 @@ document.querySelectorAll('.window').forEach(win => {
   const tb = win.querySelector('.titlebar');
   let dragging = false, ox = 0, oy = 0;
 
+  const startDrag = (clientX, clientY) => {
+    dragging = true;
+    ox = clientX - win.offsetLeft;
+    oy = clientY - win.offsetTop;
+    win.style.zIndex = ++zTop;
+  };
+
+  const doDrag = (clientX, clientY) => {
+    if (!dragging) return;
+    win.style.left = Math.max(0, Math.min(window.innerWidth  - 60, clientX - ox)) + 'px';
+    win.style.top  = Math.max(0, Math.min(window.innerHeight - 46, clientY - oy)) + 'px';
+  };
+
+  const endDrag = () => { dragging = false; };
+
   tb.addEventListener('mousedown', e => {
     if (e.target.tagName === 'BUTTON') return;
-    dragging = true;
-    ox = e.clientX - win.offsetLeft;
-    oy = e.clientY - win.offsetTop;
-    win.style.zIndex = ++zTop;
+    startDrag(e.clientX, e.clientY);
+    e.preventDefault();
+  });
+
+  tb.addEventListener('touchstart', e => {
+    if (e.target.tagName === 'BUTTON') return;
+    const touch = e.touches[0];
+    startDrag(touch.clientX, touch.clientY);
     e.preventDefault();
   });
 
   win.addEventListener('mousedown', () => { win.style.zIndex = ++zTop; });
 
-  document.addEventListener('mousemove', e => {
+  document.addEventListener('mousemove', e => { doDrag(e.clientX, e.clientY); });
+  document.addEventListener('touchmove', e => {
     if (!dragging) return;
-    win.style.left = Math.max(0, Math.min(window.innerWidth  - 60, e.clientX - ox)) + 'px';
-    win.style.top  = Math.max(0, Math.min(window.innerHeight - 46, e.clientY - oy)) + 'px';
-  });
+    const touch = e.touches[0];
+    doDrag(touch.clientX, touch.clientY);
+    e.preventDefault();
+  }, { passive: false });
 
-  document.addEventListener('mouseup', () => { dragging = false; });
+  document.addEventListener('mouseup', endDrag);
+  document.addEventListener('touchend', endDrag);
 });
 
 // ══════════════════════════════════════════════════════
@@ -1805,20 +1830,40 @@ document.querySelectorAll('.resize-handle').forEach(handle => {
   const win = handle.closest('.window');
   let resizing = false, startX, startY, startW, startH;
 
-  handle.addEventListener('mousedown', e => {
+  const startResize = (clientX, clientY) => {
     resizing = true;
-    startX = e.clientX; startY = e.clientY;
+    startX = clientX; startY = clientY;
     startW = win.offsetWidth; startH = win.offsetHeight;
+  };
+
+  const doResize = (clientX, clientY) => {
+    if (!resizing) return;
+    win.style.width  = Math.max(320, startW + clientX - startX) + 'px';
+    win.style.height = Math.max(220, startH + clientY - startY) + 'px';
+  };
+
+  const endResize = () => { resizing = false; };
+
+  handle.addEventListener('mousedown', e => {
+    startResize(e.clientX, e.clientY);
     e.preventDefault(); e.stopPropagation();
   });
 
-  document.addEventListener('mousemove', e => {
-    if (!resizing) return;
-    win.style.width  = Math.max(320, startW + e.clientX - startX) + 'px';
-    win.style.height = Math.max(220, startH + e.clientY - startY) + 'px';
+  handle.addEventListener('touchstart', e => {
+    const touch = e.touches[0];
+    startResize(touch.clientX, touch.clientY);
+    e.preventDefault(); e.stopPropagation();
   });
 
-  document.addEventListener('mouseup', () => { resizing = false; });
+  document.addEventListener('mousemove', e => { doResize(e.clientX, e.clientY); });
+  document.addEventListener('touchmove', e => {
+    const touch = e.touches[0];
+    doResize(touch.clientX, touch.clientY);
+    e.preventDefault();
+  }, { passive: false });
+
+  document.addEventListener('mouseup', endResize);
+  document.addEventListener('touchend', endResize);
 });
 
 // ══════════════════════════════════════════════════════
