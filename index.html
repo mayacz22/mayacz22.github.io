@@ -1686,15 +1686,23 @@ function openWindow(id) {
   const jitter = Math.random() * 24 - 12;
   const viewportW = window.innerWidth;
   const viewportH = window.innerHeight;
+  const isMobile = viewportW < 768;
+
+  // Responsive sizing
+  let w = isMobile ? Math.min(def.w, viewportW - 20) : def.w;
+  let h = isMobile ? Math.min(def.h, viewportH - 80) : def.h;
+  w = Math.max(280, w); // min width
+  h = Math.max(180, h); // min height
+
   let posX = def.ox + jitter;
   let posY = def.oy + jitter;
 
-  // Clamp to viewport for mobile
-  posX = Math.max(0, Math.min(viewportW - Math.min(340, def.w), posX));
-  posY = Math.max(0, Math.min(viewportH - 200, posY));
+  // Clamp to viewport
+  posX = Math.max(0, Math.min(viewportW - w, posX));
+  posY = Math.max(0, Math.min(viewportH - h, posY));
 
-  win.style.width  = def.w + 'px';
-  win.style.height = def.h + 'px';
+  win.style.width  = w + 'px';
+  win.style.height = h + 'px';
   win.style.left   = posX + 'px';
   win.style.top    = posY + 'px';
   win.style.zIndex = ++zTop;
