@@ -237,7 +237,9 @@
     .win-body {
       padding: 22px 24px;
       overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
       flex: 1;
+      min-height: 0;
       color: var(--text);
       font-size: 13px;
       line-height: 1.75;
@@ -1700,8 +1702,17 @@ function openWindow(id) {
   w = Math.max(280, w); // min width
   h = Math.max(180, h); // min height
 
-  let posX = def.ox + jitter;
-  let posY = def.oy + jitter;
+  let posX, posY;
+
+  if (isMobile) {
+    // Center windows on mobile
+    posX = (viewportW - w) / 2;
+    posY = (viewportH - h) / 2 - 40;
+  } else {
+    // Desktop positioning with offset
+    posX = def.ox + jitter;
+    posY = def.oy + jitter;
+  }
 
   // Clamp to viewport
   posX = Math.max(0, Math.min(viewportW - w, posX));
