@@ -1684,10 +1684,19 @@ function openWindow(id) {
 
   const def = winDefaults[id] || { w: 500, h: 400, ox: 180, oy: 80 };
   const jitter = Math.random() * 24 - 12;
+  const viewportW = window.innerWidth;
+  const viewportH = window.innerHeight;
+  let posX = def.ox + jitter;
+  let posY = def.oy + jitter;
+
+  // Clamp to viewport for mobile
+  posX = Math.max(0, Math.min(viewportW - Math.min(340, def.w), posX));
+  posY = Math.max(0, Math.min(viewportH - 200, posY));
+
   win.style.width  = def.w + 'px';
   win.style.height = def.h + 'px';
-  win.style.left   = (def.ox + jitter) + 'px';
-  win.style.top    = (def.oy + jitter) + 'px';
+  win.style.left   = posX + 'px';
+  win.style.top    = posY + 'px';
   win.style.zIndex = ++zTop;
   win.classList.add('active');
   win.style.display = 'flex';
@@ -1790,8 +1799,8 @@ document.querySelectorAll('.window').forEach(win => {
 
   const doDrag = (clientX, clientY) => {
     if (!dragging) return;
-    win.style.left = Math.max(0, Math.min(window.innerWidth  - 60, clientX - ox)) + 'px';
-    win.style.top  = Math.max(0, Math.min(window.innerHeight - 46, clientY - oy)) + 'px';
+    win.style.left = Math.max(0, Math.min(window.innerWidth  - win.offsetWidth, clientX - ox)) + 'px';
+    win.style.top  = Math.max(0, Math.min(window.innerHeight - win.offsetHeight, clientY - oy)) + 'px';
   };
 
   const endDrag = () => { dragging = false; };
